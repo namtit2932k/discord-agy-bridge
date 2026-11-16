@@ -1,0 +1,15 @@
+# Local secrets, runtime state, and daemon logs (NEVER commit)
+config.json
+state.json
+bot.log
+bot.log.*
+bot.pid
+*.log
+*.pid
+
+# Local dependencies & sandbox/temp workspaces
+node_modules/
+workspaces/
+member-workspaces/
+no-project/
+.tmp*

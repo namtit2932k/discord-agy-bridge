@@ -1,0 +1,77 @@
+{
+  "botToken": "PASTE_YOUR_DISCORD_BOT_TOKEN_HERE",
+  "allowedUserId": "PASTE_YOUR_DISCORD_USER_ID_HERE",
+  "adminUserIds": [],
+  "allowedChannelIds": [],
+  "autoOnboard": {
+    "enabled": true,
+    "rootDir": "C:\\Users\\Admin\\DiscordShared",
+    "categoryName": "Member Workspaces",
+    "channelPrefix": "ai-",
+    "defaultModel": "",
+    "defaultEffort": "",
+    "mode": "auto",
+    "sandbox": true,
+    "allowNonWorkspaceAccess": false,
+    "allowDesktopTools": false,
+    "allowChrome": false,
+    "ignoreBots": true,
+    "deleteChannelOnLeave": false,
+    "allowGuildIds": []
+  },
+  "channelRules": {
+    "EXAMPLE_TEAM_CHANNEL_ID": {
+      "label": "Team Workspace",
+      "cwd": "C:\\Users\\Admin\\Projects\\TeamSafeDir",
+      "allowUserIds": [],
+      "allowRoleIds": [],
+      "allowEveryone": false,
+      "mode": "auto",
+      "sandbox": true,
+      "allowNonWorkspaceAccess": false,
+      "allowDesktopTools": false,
+      "allowChrome": false
+    }
+  },
+  "allowDm": true,
+  "autoThreadInChannel": true,
+  "guideChannelName": "instructions",
+  "freeChatChannelName": "free-chat",
+  "agyPath": "C:\\Users\\Admin\\AppData\\Local\\agy\\bin\\agy.exe",
+  "defaultCwd": "C:\\Users\\Admin\\.gemini\\antigravity\\scratch",
+  "defaultProject": "",
+  "defaultModel": "gemini-3.8-flash-high",
+  "defaultEffort": "",
+  "mode": "auto",
+  "sandbox": true,
+  "showFooter": true,
+  "streamProgress": true,
+  "printTimeout": "15m",
+  "memberPrintTimeout": "5m",
+  "maxConcurrentRuns": 2,
+  "memberLimits": {
+    "dailyMaxTurns": 30,
+    "dailyMaxTokens": 0,
+    "cooldownSec": 5,
+    "workspaceMaxMb": 200,
+    "blockBypassSandbox": true
+  },
+  "webhook": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 3939,
+    "defaultSecret": "CHANGE_ME_LONG_RANDOM_SECRET",
+    "rateLimitPerMin": 20,
+    "hooks": {
+      "server-alerts": {
+        "channelId": "EXAMPLE_ALERT_CHANNEL_ID",
+        "createThread": true,
+        "threadPrefix": "[Alert]",
+        "cwd": "C:\\Users\\Admin\\Projects\\ServerLogs",
+        "mode": "plan",
+        "sandbox": true,
+        "dedupWindowSec": 60
+      }
+    }
+  }
+}
