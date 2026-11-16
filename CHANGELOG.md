@@ -18,6 +18,17 @@
 
 ---
 
+## [2026-11-17 01:48] — Làm mới `README.md` (mặc định tiếng Anh) + `README.vi.md` kèm logo `assets/logo.png` & language switcher
+* **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
+* **Tóm tắt thay đổi:**
+  * Copy logo bản đen nền trong suốt (`sickyturtlez-icon-transparent.png`) vào [`assets/logo.png`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/logo.png).
+  * Thiết kế [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md) (mặc định tiếng Anh) và [`README.vi.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.vi.md) (tiếng Việt) theo bố cục hero căn giữa (logo, tên dự án, badges, link chuyển ngôn ngữ `English · Tiếng Việt`).
+  * Viết lại phần **Vấn đề ban đầu & Cách giải quyết** đúng 3 trụ cột: (1) Antigravity chưa có app riêng, (2) Chia sẻ AI an toàn cho nhiều người dùng với sandbox/RBAC, (3) Tích hợp đầy đủ tính năng bot quản lý server Discord cỡ lớn + tự động hóa + tiện ích Voice vào 1 bot duy nhất.
+* **Kiểm tra đã chạy:**
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass, commit & push lên `origin/main`.
+
+---
+
 ## [2026-11-17 01:24] — Chỉnh lại mô tả vấn đề đầu trang `README.md` (do Antigravity chưa có app native riêng)
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**
