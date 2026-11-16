@@ -18,6 +18,15 @@
 
 ---
 
+## [2026-11-17 01:24] — Chỉnh lại mô tả vấn đề đầu trang `README.md` (do Antigravity chưa có app native riêng)
+* **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
+* **Tóm tắt thay đổi:**
+  * [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md): Sửa mục 1 phần "Vấn đề ban đầu" thành lý do thực tế là Antigravity chưa có ứng dụng native riêng (thay cho ý phụ thuộc ngồi tại máy).
+* **Kiểm tra đã chạy:**
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass, commit & push lên `origin/main`.
+
+---
+
 ## [2026-11-17 01:20] — Gộp tính năng phát nhạc Voice vào nhóm Bot Discord đa nhiệm trong `README.md`
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**

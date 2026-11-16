@@ -7,7 +7,7 @@
 ## 1. Tổng quan & Bài toán dự án giải quyết
 
 ### Vấn đề ban đầu
-1. **Phụ thuộc ngồi trực tiếp tại máy:** `agy` (Antigravity CLI) chạy cục bộ trên máy Windows của bạn. Khi ra ngoài hoặc dùng điện thoại, bạn không thể giao việc cho AI đọc code, sửa file, chạy lệnh hay xem màn hình/trình duyệt trên máy mình.
+1. **Antigravity chưa có app native riêng:** Dù có thể điều khiển từ xa, Antigravity hiện chưa có ứng dụng di động hay app chat native độc lập để bạn mở nhanh trên điện thoại, nhắn tin/gửi ảnh và nhận kết quả tự nhiên như trên một ứng dụng nhắn tin quen thuộc (Discord).
 2. **Không chia sẻ an toàn được cho nhiều người:** Nếu cho bạn bè/thành viên server Discord dùng chung `agy` trực tiếp trên máy chủ, họ có thể vô tình hoặc cố ý truy cập thư mục hệ thống, đọc file cấu hình bí mật (`config.json`), chạy lệnh vượt quyền (`BypassSandbox`) hoặc spam làm hết lượt AI.
 3. **Thiếu nền tảng quản trị server & tự động hóa thống nhất:** Các tác vụ quản lý phòng thành viên, gửi thông báo vào/rời server, hẹn giờ cron, webhook cảnh báo hệ thống, xuất nhanh file Office/PDF/âm thanh MP3, điều khiển trình duyệt **Chrome AM**, hay giải trí phát nhạc Voice cho cộng đồng thường phải ghép nhiều bot rời rạc.
 
