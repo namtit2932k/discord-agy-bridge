@@ -18,6 +18,16 @@
 
 ---
 
+## [2026-11-17 03:34] — Rút gọn tin nhắn chào mừng (`lib/onboard.mjs`)
+* **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
+* **Tóm tắt thay đổi:**
+  * [`lib/onboard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/onboard.mjs): Rút gọn danh sách gợi ý model trong tin nhắn chào mừng thành chỉ lấy tên chính (ví dụ: "Gemini", "Claude") thay vì liệt kê đầy đủ.
+* **Kiểm tra đã chạy:**
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass.
+  * Restart daemon.
+
+---
+
 ## [2026-11-17 03:27] — Cập nhật model mặc định & mở rộng danh sách `FALLBACK_ALT_MODELS` trong `lib/onboard.mjs`
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**
