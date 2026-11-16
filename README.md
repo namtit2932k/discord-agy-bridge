@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.png" alt="sickyturtlez logo" width="120" />
+  <img src="assets/logo-white.png" alt="sickyturtlez logo" width="120" />
   <h1>discord-agy-bridge</h1>
   <p><strong>Turn a Windows machine running Antigravity CLI (<code>agy</code>) into an all-in-one Discord AI Assistant, Server Management Bot &amp; Automation Hub.</strong></p>
   <p>
@@ -84,7 +84,8 @@ Discord (DM / Server Channels / Threads / Voice)
 ```text
 discord-agy-bridge/
 ├── assets/
-│   └── logo.png              # Project logo (black transparent PNG)
+│   ├── logo-white.png        # Active logo (white ink, transparent PNG)
+│   └── logo-black.png        # Alternate logo (black ink, transparent PNG)
 ├── bot.mjs                   # Main entrypoint: Gateway dispatch, slash/button handlers, agy runner
 ├── lib/
 │   ├── announce-card.mjs     # Transparent PNG join/leave banner generator (.NET System.Drawing)

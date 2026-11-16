@@ -18,6 +18,16 @@
 
 ---
 
+## [2026-11-17 01:52] — Đổi logo sang bản nét trắng nền trong suốt (`assets/logo-white.png`) và giữ sẵn `assets/logo-black.png`
+* **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
+* **Tóm tắt thay đổi:**
+  * Thêm [`assets/logo-white.png`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/logo-white.png) (`sickyturtlez-icon-transparent-white-ink.png`) và [`assets/logo-black.png`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/logo-black.png) (`sickyturtlez-icon-transparent.png`), xóa `assets/logo.png`.
+  * Cập nhật [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md) và [`README.vi.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.vi.md) dùng `assets/logo-white.png`.
+* **Kiểm tra đã chạy:**
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass, commit & push lên `origin/main`.
+
+---
+
 ## [2026-11-17 01:48] — Làm mới `README.md` (mặc định tiếng Anh) + `README.vi.md` kèm logo `assets/logo.png` & language switcher
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**

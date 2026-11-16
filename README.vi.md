@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.png" alt="sickyturtlez logo" width="120" />
+  <img src="assets/logo-white.png" alt="sickyturtlez logo" width="120" />
   <h1>discord-agy-bridge</h1>
   <p><strong>Biến máy tính Windows cài Antigravity CLI (<code>agy</code>) thành Trợ lý AI qua Discord, Bot quản lý Server đa nhiệm &amp; Automation Hub.</strong></p>
   <p>
@@ -84,7 +84,8 @@ Discord (DM / Server Channels / Threads / Voice)
 ```text
 discord-agy-bridge/
 ├── assets/
-│   └── logo.png              # Logo chính thức của dự án (PNG nền trong suốt)
+│   ├── logo-white.png        # Logo đang dùng (nét trắng nền trong suốt)
+│   └── logo-black.png        # Logo dự phòng (nét đen nền trong suốt)
 ├── bot.mjs                   # Điểm vào chính: Gateway dispatch, Slash/Button handlers, luồng chạy agy
 ├── lib/
 │   ├── announce-card.mjs     # Render banner PNG nền trong suốt cho #announcement (.NET System.Drawing)
