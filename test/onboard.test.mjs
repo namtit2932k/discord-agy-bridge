@@ -38,8 +38,8 @@ test("buildMemberWelcomeMessage falls back cleanly when availableModels is empty
   });
 
   assert.match(msg, /\*\*Gemini 3\.8 Flash \(Low\)\*\*/);
-  assert.match(msg, /\*\*Gemini 4 Argon\*\*/);
-  assert.match(msg, /\*\*Gemini 4 Hydrogen\*\*/);
+  assert.match(msg, /\*\*Gemini 4 Argon \(Medium\)\*\*/);
+  assert.match(msg, /\*\*Gemini 4 Hydrogen \(High\)\*\*/);
   assert.match(msg, /\*\*Orchestrator \(Argon\)\*\*/);
-  assert.match(msg, /\*\*Claude Opus 5\.5\*\*/);
+  assert.match(msg, /\*\*Claude Opus 5\.5 \(Low\)\*\*/);
 });

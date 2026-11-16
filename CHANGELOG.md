@@ -18,12 +18,25 @@
 
 ---
 
-## [2026-11-17 03:13] — Sửa câu chào trong kênh riêng thành viên (`lib/onboard.mjs`)
+## [2026-11-17 03:27] — Cập nhật model mặc định & mở rộng danh sách `FALLBACK_ALT_MODELS` trong `lib/onboard.mjs`
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**
-  * [`lib/onboard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/onboard.mjs): Cập nhật câu chào mừng thành viên mới trong kênh riêng `#ai-<tên>`: model mặc định hiển thị cứng là **Gemini 4 Hydrogen Medium** và thêm icon hoa hồng héo `🥀` sau "bank 50k".
+  * [`lib/onboard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/onboard.mjs):
+    * Đổi `defaultModel` trong `buildMemberWelcomeMessage()` thành `'gemini-4-hydrogen-medium'`.
+    * Nâng cấp `FALLBACK_ALT_MODELS` từ danh sách tĩnh cứng nhắc sang danh sách đầy đủ các model hiện có (để hướng dẫn người dùng chính xác hơn).
 * **Kiểm tra đã chạy:**
-  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass, commit & push lên `origin/main`.
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass.
+  * Restart daemon (`bot.pid`, `[gateway] Ready as sickyturtlez#7297`).
+
+---
+
+## [2026-11-17 03:16] — Sửa logic tính số thành viên (trừ bot ra khỏi tổng đếm) (`bot.mjs`)
+* **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
+* **Tóm tắt thay đổi:**
+  * [`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs): Trong hàm `sendMemberAnnouncement()`, sửa `adjustedCount = Math.max(0, memberCount - 1)` để trừ đi bot khỏi tổng số thành viên hiển thị trên banner card `#announcement`.
+* **Kiểm tra đã chạy:**
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass.
+  * Restart daemon (`bot.pid`, `[gateway] Ready as sickyturtlez#7297`).
 
 ---
 
