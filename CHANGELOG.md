@@ -18,6 +18,15 @@
 
 ---
 
+## [2026-11-17 01:15] — Bổ sung chi tiết mục tiêu, bài toán, kiến trúc & bàn giao trong `README.md`
+* **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
+* **Tóm tắt thay đổi:**
+  * [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md): Bổ sung phần Tổng quan & Bài toán thực tế giải quyết được, sơ đồ kiến trúc luồng xử lý 4 lớp, phân nhóm chi tiết từng tính năng (Chat 2 chiều, RBAC/Auto-Onboard, Desktop/Chrome AM, Automation Hub, Voice Music Player `/play`) và checklist bàn giao rõ ràng cho người nhận/AI Agent khác.
+* **Kiểm tra đã chạy:**
+  * `node --check` toàn bộ `.mjs`, `node --test`: `36/36` pass, commit & push lên `origin/main`.
+
+---
+
 ## [2026-11-17 01:08] — Khởi tạo Git, bổ sung `.gitignore` bảo mật & viết lại `README.md` chi tiết cho bàn giao (`README.md`, `.gitignore`)
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**
