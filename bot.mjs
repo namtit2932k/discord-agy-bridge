@@ -2123,11 +2123,12 @@ async function sendMemberAnnouncement(kind, data) {
   }
 
   const memberCount = await resolveGuildMemberCount(guildId);
+  const adjustedCount = Math.max(0, memberCount - 1); // Trừ 1 để không tính bot
   const avatarUrl = buildMemberAvatarUrl(data, guildId);
   const cardBuffer = await renderAnnouncementCard({
     kind,
     username,
-    memberCount,
+    memberCount: adjustedCount,
     avatarUrl,
   }).catch((err) => {
     console.warn(`[announce] Card render failed, falling back to embed text:`, err.message);
