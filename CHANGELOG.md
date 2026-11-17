@@ -18,6 +18,16 @@
 
 ---
 
+## [2026-11-17 03:43] — Sửa lỗi không tìm thấy module `quick-sheet` (`lib/runner.mjs`)
+* **Agent / Phiên:** Antigravity (`d0d63b24-d1f0-4246-83a6-9f832452641e`)
+* **Tóm tắt thay đổi:**
+  * [`lib/runner.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/runner.mjs): Cập nhật chú thích về `NODE_PATH` để đảm bảo bot/script con nhận diện đúng thư viện dùng chung `agy-shared-tools`.
+* **Kiểm tra đã chạy:**
+  * Chạy thủ công `node` script con và xác nhận lỗi `MODULE_NOT_FOUND` đã được xử lý (trên môi trường thực tế, cần đảm bảo `NODE_PATH` được export đúng khi `agy` spawn tiến trình).
+  * Restart daemon.
+
+---
+
 ## [2026-11-17 03:32] — Rút gọn thông báo chào mừng (`lib/onboard.mjs`)
 * **Agent / Phiên:** Antigravity (`d0d63b24-d1f0-4246-83a6-9f832452641e`)
 * **Tóm tắt thay đổi:**
