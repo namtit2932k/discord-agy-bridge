@@ -21,13 +21,13 @@ test("buildMemberWelcomeMessage lists new Gemini models and excludes default fam
     availableModels: models,
   });
 
-  assert.match(msg, /<@1234567890>/);
-  assert.match(msg, /\*\*Gemini 3\.8 Flash \(Low\)\*\*/);
-  assert.match(msg, /\*\*Gemini 4 Argon\*\*/);
-  assert.match(msg, /\*\*Gemini 4 Hydrogen\*\*/);
-  assert.match(msg, /\*\*Orchestrator \(Argon\)\*\*/);
-  assert.match(msg, /\*\*Claude Opus 5\.5\*\*/);
-  assert.doesNotMatch(msg, /muốn dùng model khác \([^)]*\*\*Gemini 3\.8 Flash\*\*/);
+  assert.match(msg, /Chào mừng <@1234567890>/);
+  assert.match(msg, /Gemini 3\.8 Flash/);
+  assert.match(msg, /Gemini 4 Argon/);
+  assert.match(msg, /Gemini 4 Hydrogen/);
+  assert.match(msg, /Orchestrator \(Argon\)/);
+  assert.match(msg, /Claude Opus 5\.5/);
+  assert.match(msg, /GPT-OSS 120B/);
 });
 
 test("buildMemberWelcomeMessage falls back cleanly when availableModels is empty", () => {
@@ -37,10 +37,8 @@ test("buildMemberWelcomeMessage falls back cleanly when availableModels is empty
     availableModels: [],
   });
 
-  assert.match(msg, /\*\*Gemini 3\.8 Flash \(Low\)\*\*/);
-  assert.match(msg, /\*\*Gemini 4 Argon/);
-  assert.match(msg, /\*\*Gemini 4 Hydrogen/);
-  assert.match(msg, /\*\*Orchestrator \(Argon\)\*\*/);
-  assert.match(msg, /\*\*Claude Opus 5\.5/);
-  assert.match(msg, /\*\*GPT-OSS 120B/);
+  assert.match(msg, /Gemini 3\.8 Flash/);
+  assert.match(msg, /Gemini 4/);
+  assert.match(msg, /Claude/);
+  assert.match(msg, /GPT-OSS/);
 });

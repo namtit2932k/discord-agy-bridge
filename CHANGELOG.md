@@ -18,6 +18,16 @@
 
 ---
 
+## [2026-11-17 03:32] — Rút gọn thông báo chào mừng (`lib/onboard.mjs`)
+* **Agent / Phiên:** Antigravity (`d0d63b24-d1f0-4246-83a6-9f832452641e`)
+* **Tóm tắt thay đổi:**
+  * [`lib/onboard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/onboard.mjs): Rút gọn thông báo onboarding, bỏ các bullet point thừa, gom nhóm model theo family và loại bỏ suffix (Low/High/...).
+* **Kiểm tra đã chạy:**
+  * `node --test`: `36/36` pass.
+  * Restart daemon.
+
+---
+
 ## [2026-11-17 03:37] — Hiển thị lại tên model đầy đủ trong thông báo chào mừng (`lib/onboard.mjs`)
 * **Agent / Phiên:** Antigravity (`d41d543d-cf7f-4a5f-98e1-c203db926e65`)
 * **Tóm tắt thay đổi:**
