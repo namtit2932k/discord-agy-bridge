@@ -15,6 +15,7 @@
     "allowNonWorkspaceAccess": false,
     "allowDesktopTools": false,
     "allowChrome": false,
+    "allowFirecrawl": false,
     "ignoreBots": true,
     "deleteChannelOnLeave": false,
     "allowGuildIds": []
@@ -30,7 +31,8 @@
       "sandbox": true,
       "allowNonWorkspaceAccess": false,
       "allowDesktopTools": false,
-      "allowChrome": false
+      "allowChrome": false,
+      "allowFirecrawl": false
     }
   },
   "allowDm": true,

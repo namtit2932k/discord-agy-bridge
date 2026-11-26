@@ -5,7 +5,7 @@ import http from "node:http";
 import readline from "node:readline";
 import crypto from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   cleanInlineLabel,
@@ -66,6 +66,7 @@ import {
   closeChromeAm,
   createDesktopToolHandler,
   filterMcpTools,
+  getChannelTempDir,
   getChromeAmStatus,
   loadAppCatalog,
   manageDesktopWindows,
@@ -87,6 +88,13 @@ import {
   normalizeMaxConcurrentRuns,
   resolveTurnTimeout,
 } from "./lib/runner.mjs";
+import {
+  buildGuardEnv,
+  classifyMcpFamily,
+  ensureSecurityHookRegistered,
+  evaluateToolGuard,
+  normalizeToolInvocation,
+} from "./lib/guard.mjs";
 import { GUILD_MEMBERS_INTENT, DiscordGatewayClient } from "./lib/discord-gateway.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -228,6 +236,27 @@ async function runMcpStdioMode() {
     process.stdin.on("error", markClosed);
   });
   process.exit(0);
+}
+
+/** Run as a lightweight PreToolUse hook guard for agy turns; enforces RBAC hard blocks before tools execute. */
+async function runHookGuardMode() {
+  let raw = "";
+  try {
+    process.stdin.setEncoding("utf8");
+    for await (const chunk of process.stdin) {
+      raw += chunk;
+    }
+    const payload = raw.trim() ? JSON.parse(raw) : {};
+    const decision = evaluateToolGuard(payload, process.env);
+    process.stdout.write(`${JSON.stringify(decision)}\n`);
+  } catch {
+    process.stdout.write('{"decision":"allow"}\n');
+  }
+  process.exit(0);
+}
+
+if (process.argv.includes("--hook-guard")) {
+  await runHookGuardMode();
 }
 
 if (process.argv.includes("--mcp-stdio")) {
@@ -402,6 +431,26 @@ const activeRunSentFiles = new Map();
 const activeRunPostedChannels = new Map();
 const activeRunScopes = new Map();
 const deletedChannels = new Set();
+
+function setBoundedMap(map, key, value, maxSize = 500) {
+  if (map.has(key)) map.delete(key);
+  map.set(key, value);
+  while (map.size > maxSize) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
+}
+
+function addBoundedSet(set, value, maxSize = 500) {
+  if (set.has(value)) set.delete(value);
+  set.add(value);
+  while (set.size > maxSize) {
+    const oldest = set.values().next().value;
+    if (oldest === undefined) break;
+    set.delete(oldest);
+  }
+}
 const deletingThreads = new Map();
 const clearingChannels = new Set();
 const freeChatChannelIds = new Set(config.freeChatChannelId ? [config.freeChatChannelId] : []);
@@ -578,7 +627,7 @@ function deleteThreadSession(threadId, { parentId = null, deleteStarter = true }
 
   const task = (async () => {
     const alreadyHandled = deletedChannels.has(threadId);
-    deletedChannels.add(threadId);
+    addBoundedSet(deletedChannels, threadId);
     const existing = state.channels[threadId];
     const convId = existing?.conversationId || null;
     const cachedMeta = channelMetaCache.get(threadId) || null;
@@ -861,7 +910,7 @@ async function clearChannelMessages(channelId, maxCount, route, triggerMsgId) {
 async function getChannelMeta(channelId) {
   if (channelMetaCache.has(channelId)) return channelMetaCache.get(channelId);
   const meta = await discordRequest("GET", `/channels/${channelId}`);
-  channelMetaCache.set(channelId, meta);
+  setBoundedMap(channelMetaCache, channelId, meta);
   return meta;
 }
 
@@ -1630,7 +1679,12 @@ function runAgy(args, cwd, trackChannelId = null, onStdoutLine = null, extraEnv 
       activeRuns.set(trackChannelId, {
         abort: () => {
           aborted = true;
-          child.kill();
+          if (process.platform === "win32" && child.pid) {
+            execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {});
+          }
+          try {
+            child.kill();
+          } catch {}
         },
       });
     }
@@ -2682,7 +2736,7 @@ async function handleAccessCommand(channelId, argStr, msg = null) {
     const modelNote = rule.model ? `, model=\`${rule.model}${rule.effort ? ` (${rule.effort})` : ""}\`` : "";
     await sendDiscordMessages(
       channelId,
-      `✅ Đã cấp quyền kênh <#${targetChId}> → \`${rule.cwd}\` (Ai dùng: ${who} | mode=\`${rule.mode}\`, sandbox=\`${rule.sandbox ? "on" : "off"}\`, desktop=\`${rule.allowDesktopTools ? "on" : "off"}\`, chrome=\`${rule.allowChrome ? "on" : "off"}\`${modelNote}).`
+      `✅ Đã cấp quyền kênh <#${targetChId}> → \`${rule.cwd}\` (Ai dùng: ${who} | mode=\`${rule.mode}\`, sandbox=\`${rule.sandbox ? "on" : "off"}\`, desktop=\`${rule.allowDesktopTools ? "on" : "off"}\`, chrome=\`${rule.allowChrome ? "on" : "off"}\`, firecrawl=\`${rule.allowFirecrawl ? "on" : "off"}\`${modelNote}).`
     );
     return;
   }
@@ -3870,9 +3924,15 @@ async function handleCommand(channelId, msgContent, route, triggerMsgId = null, 
 /** Run a prompt against agy inside a serialized per-channel queue. */
 function enqueuePrompt(channelId, prompt, parentId = null) {
   const prev = channelQueues.get(channelId) || Promise.resolve();
-  const next = prev
+  let next;
+  next = prev
     .catch(() => {})
-    .then(() => processPrompt(channelId, prompt, parentId));
+    .then(() => processPrompt(channelId, prompt, parentId))
+    .finally(() => {
+      if (channelQueues.get(channelId) === next) {
+        channelQueues.delete(channelId);
+      }
+    });
   channelQueues.set(channelId, next);
   return next;
 }
@@ -3903,6 +3963,19 @@ const MCP_ACTION_LABELS = {
   press_key: "Nhấn phím",
   wait_for: "Đợi phần tử/nội dung",
   hover: "Di chuột trên trang",
+  desktop_snapshot: "Đọc giao diện app Windows",
+  desktop_find: "Tìm phần tử trên app Windows",
+  desktop_click: "Bấm nút trên app Windows",
+  desktop_set_value: "Điền ô nhập trên app Windows",
+  desktop_list_windows: "Xem danh sách cửa sổ Windows",
+  desktop_list_notifications: "Đọc thông báo Windows",
+  desktop_screenshot: "Chụp cửa sổ Windows",
+  firecrawl_scrape: "Đọc trang web qua Firecrawl",
+  firecrawl_search: "Tìm web qua Firecrawl",
+  firecrawl_parse: "Phân tích tài liệu qua Firecrawl",
+  firecrawl_map: "Quét danh sách link qua Firecrawl",
+  firecrawl_crawl: "Cào dữ liệu web qua Firecrawl",
+  firecrawl_credit_usage: "Kiểm tra credit Firecrawl",
 };
 
 /** Pick the first non-empty string property among candidate parameter keys. */
@@ -3943,7 +4016,14 @@ function describeAgyToolStep(toolName, rawParams = {}) {
     }
   } else if (effectiveName.startsWith("mcp_")) {
     const stripped = effectiveName.slice(4);
-    for (const prefix of ["discord-bridge-desktop_", "chrome-devtools_"]) {
+    for (const prefix of [
+      "discord-bridge-desktop_",
+      "chrome-devtools_",
+      "agent-desktop_agent-desktop_",
+      "agent-desktop_",
+      "firecrawl_firecrawl_",
+      "firecrawl_",
+    ]) {
       if (stripped.startsWith(prefix)) {
         effectiveName = stripped.slice(prefix.length);
         break;
@@ -4027,7 +4107,7 @@ function normalizeStreamStepStatus(state) {
 }
 
 /** Track NDJSON stream events from agy and render compact Discord progress text. */
-function createAgyStreamState(turnStartMs = Date.now(), { onBypassSandbox = null } = {}) {
+function createAgyStreamState(turnStartMs = Date.now(), { onBypassSandbox = null, onBlockedMcp = null } = {}) {
   let conversationId = null;
   let phase = "đang khởi động";
   const toolSteps = new Map();
@@ -4035,6 +4115,7 @@ function createAgyStreamState(turnStartMs = Date.now(), { onBypassSandbox = null
   let responsePreview = "";
   let finalResult = null;
   let bypassReported = false;
+  const blockedMcpReported = new Set();
 
   const hasActiveTool = () => {
     for (const step of toolSteps.values()) {
@@ -4083,6 +4164,17 @@ function createAgyStreamState(turnStartMs = Date.now(), { onBypassSandbox = null
             bypassReported = true;
             if (typeof onBypassSandbox === "function") {
               onBypassSandbox({ toolName, params });
+            }
+          }
+          if (typeof onBlockedMcp === "function") {
+            const inv = normalizeToolInvocation({ name: toolName, args: params });
+            const family = classifyMcpFamily(inv);
+            if (family && family !== "discord-bridge-desktop") {
+              const dedupKey = `${family}:${inv.toolName}`;
+              if (!blockedMcpReported.has(dedupKey)) {
+                blockedMcpReported.add(dedupKey);
+                onBlockedMcp({ family, toolName: inv.toolName, serverName: inv.serverName });
+              }
             }
           }
           const computedLabel = describeAgyToolStep(toolName, params);
@@ -4170,8 +4262,8 @@ function createAgyStreamState(turnStartMs = Date.now(), { onBypassSandbox = null
 }
 
 /** Manage throttled, serialized Discord progress message updates during an agy run. */
-function createDiscordStreamTracker(channelId, turnStartMs, { onBypassSandbox = null } = {}) {
-  const streamState = createAgyStreamState(turnStartMs, { onBypassSandbox });
+function createDiscordStreamTracker(channelId, turnStartMs, { onBypassSandbox = null, onBlockedMcp = null } = {}) {
+  const streamState = createAgyStreamState(turnStartMs, { onBypassSandbox, onBlockedMcp });
   let stopped = false;
   let dirty = true;
   let messageId = null;
@@ -4396,7 +4488,7 @@ async function processPrompt(channelId, input, parentId) {
   const execPolicy = resolveTurnExecutionPolicy(spec.policy, chState, ensureNoProjectDir());
 
   if (!spec.skipLastPromptSave && (rawPrompt || rawAttachments.length > 0 || replyContext)) {
-    channelLastPrompts.set(channelId, {
+    setBoundedMap(channelLastPrompts, channelId, {
       prompt: rawPrompt,
       attachments: rawAttachments,
       replyContext,
@@ -4422,6 +4514,7 @@ async function processPrompt(channelId, input, parentId) {
   });
 
   let tracker = null;
+  let securityMonitor = null;
   let typingTimer = null;
   let releaseSlot = null;
   let releaseAwake = null;
@@ -4445,15 +4538,32 @@ async function processPrompt(channelId, input, parentId) {
     }
   };
 
+  const onBlockedMcp = ({ family, toolName }) => {
+    if (execPolicy.isAdmin) return;
+    const allowed =
+      (family === "agent-desktop" && execPolicy.allowDesktopTools) ||
+      (family === "firecrawl" && execPolicy.allowFirecrawl) ||
+      (family === "chrome-devtools" && execPolicy.allowChrome);
+    if (allowed) return;
+    const who = spec.userId ? `<@${spec.userId}> (\`${spec.userId}\`)` : execPolicy.role || "Member";
+    console.warn(`[security] Non-admin attempted blocked MCP "${family}/${toolName}" in ${channelId}`);
+    recordSecurityAlert(state, { userId: spec.userId, channelId, kind: `blocked_${family}` });
+    saveState();
+    notifyAdminSecurityAlert(
+      `🛡️ **[Cảnh báo MCP]** Phiên của ${who} tại <#${channelId}> vừa cố gọi \`${family}/${toolName}\` → **Đã bị PreToolUse guard chặn cứng**.`
+    ).catch(() => {});
+  };
+
   try {
     if (streamEnabled) {
-      tracker = createDiscordStreamTracker(channelId, turnStartMs, { onBypassSandbox });
+      tracker = createDiscordStreamTracker(channelId, turnStartMs, { onBypassSandbox, onBlockedMcp });
       if (rawAttachments.length > 0 || replyContext?.attachments?.length > 0) {
         tracker.setPhase("đang tải tệp đính kèm");
       }
       tracker.start();
     } else {
-      // Keep Discord "typing..." indicator alive while agy works in batch mode
+      // Keep Discord "typing..." indicator alive while agy works in batch mode, and still watch stream security events
+      securityMonitor = createAgyStreamState(turnStartMs, { onBypassSandbox, onBlockedMcp });
       const triggerTyping = () => discordRequest("POST", `/channels/${channelId}/typing`).catch(() => {});
       await triggerTyping();
       typingTimer = setInterval(triggerTyping, 8000);
@@ -4564,8 +4674,8 @@ async function processPrompt(channelId, input, parentId) {
     if (injectedFullWebGuide) {
       chState.chromeGuideInjected = true;
     }
-    const outputFormat = streamEnabled ? "stream-json" : "json";
-    const args = ["-p", effectivePrompt, "--output-format", outputFormat, "--model", execPolicy.model];
+    // Always request stream-json internally so security watchdogs run even when Discord live streaming is off
+    const args = ["-p", effectivePrompt, "--output-format", "stream-json", "--model", execPolicy.model];
     if (execPolicy.mode === "auto") {
       // --mode auto falls back to default in headless CLI; pass documented session settings instead
       args.push(
@@ -4593,21 +4703,28 @@ async function processPrompt(channelId, input, parentId) {
       args.push("--project", execPolicy.projectId);
     }
 
-    const extraEnv = { AGY_DISCORD_RUN_ID: runId };
+    const extraEnv = {
+      AGY_DISCORD_RUN_ID: runId,
+      ...buildGuardEnv({
+        execPolicy,
+        blockBypassSandbox: config.memberLimits?.blockBypassSandbox !== false,
+      }),
+    };
     if (hasSharedTools) {
       extraEnv.NODE_PATH = process.env.NODE_PATH
         ? `${SHARED_TOOLS_NODE_MODULES}${path.delimiter}${process.env.NODE_PATH}`
         : SHARED_TOOLS_NODE_MODULES;
-    }
-    if (Array.isArray(execPolicy.allowedMcpTools)) {
-      extraEnv.AGY_DISCORD_ALLOWED_TOOLS = execPolicy.allowedMcpTools.join(",");
     }
 
     const res = await runAgy(
       args,
       execPolicy.cwd,
       channelId,
-      tracker ? (line) => tracker.onLine(line) : null,
+      tracker
+        ? (line) => tracker.onLine(line)
+        : securityMonitor
+          ? (line) => securityMonitor.handleLine(line)
+          : null,
       extraEnv
     );
     if (typingTimer) {
@@ -4641,7 +4758,7 @@ async function processPrompt(channelId, input, parentId) {
       return;
     }
 
-    const parsed = streamSummary?.finalResult || parseAgyOutput(res.stdout);
+    const parsed = streamSummary?.finalResult || securityMonitor?.getFinalResult() || parseAgyOutput(res.stdout);
     if (parsed) {
       const responseText = typeof parsed.response === "string" ? parsed.response.trim() : "";
       if (parsed.conversation_id) chState.conversationId = parsed.conversation_id;
@@ -4674,11 +4791,12 @@ async function processPrompt(channelId, input, parentId) {
           DISCORD_ATTACHMENTS_DIR,
           String(channelId || "general").replace(/[^a-zA-Z0-9_-]/g, "") || "general"
         );
+        const safeChannelTempDir = getChannelTempDir(DISCORD_TEMP_DIR, channelId);
         unsentImages = unsentImages.filter(
           (imgPath) =>
             isPathInsideDir(imgPath, execPolicy.cwd) ||
             isPathInsideDir(imgPath, safeAttachDir) ||
-            isPathInsideDir(imgPath, DISCORD_TEMP_DIR)
+            isPathInsideDir(imgPath, safeChannelTempDir)
         );
       }
       if (unsentImages.length > 0 && !deletedChannels.has(channelId)) {
@@ -4761,7 +4879,7 @@ async function spawnAutomationTarget(baseChannelId, { starterMessage, threadTitl
           if (thread?.id) {
             targetChannelId = thread.id;
             parentId = baseChannelId;
-            channelMetaCache.set(thread.id, thread);
+            setBoundedMap(channelMetaCache, thread.id, thread);
           }
         } catch (err) {
           console.warn("[automation] Failed to create thread, running in channel:", err.message);
@@ -4810,6 +4928,7 @@ async function triggerWebhookDispatch(hook, event) {
     isAdmin: false,
     allowDesktopTools: Boolean(hook.allowDesktopTools),
     allowChrome: Boolean(hook.allowChrome),
+    allowFirecrawl: Boolean(hook.allowFirecrawl),
     allowNonWorkspaceAccess: Boolean(hook.allowNonWorkspaceAccess),
     allowModelChange: false,
     allowClear: false,
@@ -4900,7 +5019,7 @@ async function onMessageCreate(msg) {
       if (thread?.id) {
         targetChannelId = thread.id;
         parentId = msg.channel_id;
-        channelMetaCache.set(thread.id, thread);
+        setBoundedMap(channelMetaCache, thread.id, thread);
         const threadState = getChannelState(thread.id, msg.channel_id);
         threadState.parentId = msg.channel_id;
         threadState.starterMessageId = String(msg.id);
@@ -5474,7 +5593,7 @@ function handleGatewayDispatch(eventName, data, gw) {
     }
     if (eventName === "CHANNEL_UPDATE") {
       if (data?.id) {
-        channelMetaCache.set(data.id, data);
+        setBoundedMap(channelMetaCache, data.id, data);
         if (matchesFreeChatMeta(data)) {
           registerFreeChatChannel(data.id);
         } else {
@@ -5627,6 +5746,7 @@ process.on("SIGINT", shutdownBridge);
 process.on("SIGTERM", shutdownBridge);
 
 ensureMcpConfigRegistered();
+ensureSecurityHookRegistered(__filename);
 await startMcpBridgeServer();
 loadAppCatalog().catch(() => {});
 pruneOldDiscordAttachments();

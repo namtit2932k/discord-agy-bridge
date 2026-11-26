@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  STREAM_URL_TTL_MS,
   buildFfmpegArgs,
   buildMusicControlComponents,
   buildNowPlayingEmbed,
@@ -10,6 +11,7 @@ import {
   detectMediaSource,
   formatDuration,
   isPlaylistUrl,
+  isStreamUrlExpired,
   parseSpotifyEmbedHtml,
 } from "../lib/music.mjs";
 
@@ -39,6 +41,36 @@ test("formatDuration formats seconds into mm:ss, hh:mm:ss, or LIVE", () => {
   assert.equal(formatDuration(65), "1:05");
   assert.equal(formatDuration(3661), "1:01:01");
   assert.equal(formatDuration(100, true), "LIVE");
+});
+
+test("isStreamUrlExpired flags stale signed stream URLs while keeping fresh and direct audio URLs valid", () => {
+  const now = 1_700_000_000_000;
+  assert.equal(
+    isStreamUrlExpired(
+      { streamUrl: "https://cdn/signed", webpageUrl: "https://youtube.com/watch?v=1", streamResolvedAt: now - 1000 },
+      now
+    ),
+    false
+  );
+  assert.equal(
+    isStreamUrlExpired(
+      {
+        streamUrl: "https://cdn/signed",
+        webpageUrl: "https://youtube.com/watch?v=1",
+        streamResolvedAt: now - STREAM_URL_TTL_MS - 1,
+      },
+      now
+    ),
+    true
+  );
+  // Direct audio URL without a distinct webpageUrl does not expire
+  assert.equal(
+    isStreamUrlExpired(
+      { streamUrl: "https://example.com/a.mp3", webpageUrl: "https://example.com/a.mp3", streamResolvedAt: 0 },
+      now
+    ),
+    false
+  );
 });
 
 test("parseSpotifyEmbedHtml extracts single tracks and playlists from __NEXT_DATA__", () => {

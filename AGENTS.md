@@ -1,66 +1,114 @@
-# Project Context & Handoff (`discord-agy-bridge`)
+# Project Context, Architecture & Multi-Agent Handoff Playbook (`discord-agy-bridge`)
 
-## Quy tắc bắt buộc cho mọi Agent (Multi-Agent Handoff)
-1. **Đọc ngữ cảnh trước khi làm:** Trước khi sửa code/cấu hình, hãy đọc file `AGENTS.md` này và phần đầu của [`CHANGELOG.md`](./CHANGELOG.md) (mới nhất nằm ở trên cùng).
-2. **Bắt buộc ghi nhận thay đổi mới:** Sau mỗi lượt hoàn thành công việc (sửa code, sửa MCP/Chrome AM, đổi cấu hình Task Scheduler, thêm/đổi lệnh `/`, hoặc chốt quyết định kỹ thuật mới), **PHẢI** thêm 1 mục mới lên **đầu** `CHANGELOG.md` (theo template sẵn trong file) và cập nhật `AGENTS.md` (hoặc `README.md`) nếu thay đổi kiến trúc, quy trình hay quy tắc vận hành.
-3. **Bảo mật tuyệt đối:** `config.json` chứa `botToken` bí mật — **tuyệt đối không đọc/in `botToken` ra chat, log hay tài liệu**; mọi Snowflake ID trong `config.json` phải để dạng chuỗi (`"..."`) để không bị `JSON.parse` làm tròn mất độ chính xác 64-bit (`bot.mjs` cũng có bước tự bảo toàn khi đọc `config.json`).
-4. **Cảnh báo Desktop ẩn (`WinSta0\exebox-...`) trên IDE agent:** Công cụ terminal của Antigravity IDE (`run_command`) chạy trong desktop ẩn `WinSta0\exebox-...`, KHÔNG phải desktop thật `WinSta0\Default`. **Phải mở GUI thật (như `Chrome AM`)**, vì Chrome khóa `--user-data-dir` theo đơn tiến trình và sẽ kẹt trong desktop ẩn khiến người dùng bấm ngoài Desktop không thấy cửa sổ. Việc mở GUI thật do `bot.mjs` (chạy qua Task Scheduler `Logon Mode: Interactive only`), người dùng tự bấm hoặc IDE đảm nhiệm.
-5. **Quy trình triển khai khi sửa `bot.mjs`:**
-   * Kiểm tra cú pháp: `node --check bot.mjs`
-   * Dừng tiến trình cũ & khởi động lại qua Task Scheduler (tránh mở 2 instance cùng lúc; `bot.pid` sẽ chặn instance thứ 2):
-     `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"`
-   * Xác minh `bot.pid` khớp đúng 1 tiến trình `node.exe` và `bot.log` báo `[mcp] Desktop bridge listening` + `[gateway] Ready as sickyturtlez#7297`.
+> Tài liệu này là **Nguồn sự thật duy nhất (Single Source of Truth)** cho mọi AI Agent (Antigravity, Claude Code, Codex, Cursor, Gemini CLI) tiếp nhận dự án. Đọc hết tài liệu này (~60 giây) là đủ ngữ cảnh để làm việc an toàn, đúng chuẩn.
 
 ---
 
-## Tổng quan
-Cầu nối chat 2 chiều, **Automation Hub** và **Pipeline Desktop/Browser** giữa **Discord** và **Antigravity CLI (`agy`)** viết bằng **Node.js thuần module hóa** (`bot.mjs` + `lib/*.mjs`, Node `v24.6.0`, không `npm install`, không `node_modules`), hoạt động độc lập không cần mở ứng dụng desktop Antigravity.
+## 0. Quy trình Onboarding 60 giây cho AI Agent mới nhận bàn giao
+Khi mới mở dự án hoặc bắt đầu phiên mới, thực hiện **đúng 3 bước** trước khi chỉnh sửa bất cứ thứ gì:
+1. Đọc trọn [`AGENTS.md`](./AGENTS.md) (file này).
+2. Đọc **30–60 dòng đầu** của [`CHANGELOG.md`](./CHANGELOG.md) để nắm các thay đổi gần nhất *(không cần đọc hết toàn bộ lịch sử cũ trừ khi cần truy vết bug cụ thể)*.
+3. Chạy lệnh kiểm tra sức khỏe 1 dòng:
+   ```powershell
+   node scripts/verify.mjs
+   ```
+   Lệnh này tự kiểm tra syntax mọi file `.mjs`, chạy toàn bộ unit tests (`node --test`), xác minh `config.json` (không in secret), `mcp_config.json`, `hooks.json`, `bot.pid` và vệ sinh repo (`0 node_modules`).
 
-Lịch sử chi tiết toàn bộ các thay đổi đã thực hiện từ đầu dự án đến nay nằm tại [`CHANGELOG.md`](./CHANGELOG.md).
+> **Mẫu câu lệnh bàn giao nhanh (copy gửi cho Agent mới):**
+> *"Hãy nạp ngữ cảnh dự án theo `AGENTS.md`, đọc phần đầu `CHANGELOG.md`, chạy `node scripts/verify.mjs` để kiểm tra trạng thái hiện tại rồi báo ngắn gọn trước khi làm tác vụ: <mô tả yêu cầu>."*
 
-## Thành phần đã cài & đang chạy trên máy
+---
+
+## 1. 5 Luật Thép Bất Khả Xâm Phạm
+1. **Bảo mật tuyệt đối (`config.json`):** `config.json` chứa `botToken` và secret webhook — **tuyệt đối không đọc, in ra chat/log hay commit `botToken`**. Khi cần xem schema, chỉ đọc [`config.example.json`](./config.example.json). Mọi Discord Snowflake ID trong `config.json` phải để dạng chuỗi (`"..."`) để không bị `JSON.parse` làm tròn 64-bit (`lib/utils.mjs` cũng có `quoteSnowflakeLiterals` tự bảo vệ).
+2. **Giữ kiến trúc Node.js thuần, `0 node_modules` trong repo:** Không chạy `npm install` trong thư mục repo. Mọi thư viện ngoài (`@discordjs/voice`, `@snazzah/davey`, `opusscript`, `quick-files`, `pptxgenjs`, `exceljs`, `docx`, `pdfkit`, `yt-dlp.exe`) đặt tại `C:\ProgramData\agy-shared-tools` (đã cấp quyền `ALL APPLICATION PACKAGES:(OI)(CI)(RX)` cho tiến trình sandbox) và gắn qua `NODE_PATH`. **Tuyệt đối không** truyền `--add-dir` cho thư mục thư viện vì `agy --add-dir` làm lệch `cwd` của `run_command`.
+3. **Không tự mở GUI từ terminal IDE (`WinSta0\exebox-...`):** Terminal `run_command` của IDE chạy trong desktop ẩn, KHÔNG phải desktop thật `WinSta0\Default`. Chrome khóa `--user-data-dir` theo đơn tiến trình nên mở từ shell IDE sẽ bị kẹt ẩn. Việc mở GUI thật (`Chrome AM`, app Windows) do tiến trình interactive `bot.mjs` (Task Scheduler `Logon Mode: Interactive only`) đảm nhiệm.
+4. **Bảo vệ RBAC 2 lớp khi đụng tới MCP / Plugin / Sandbox:** Mọi tính năng mới phải tôn trọng phân quyền Admin vs Member/Webhook trong [`lib/auth.mjs`](./lib/auth.mjs) và chốt chặn cứng `PreToolUse` trong [`lib/guard.mjs`](./lib/guard.mjs) + [`hook-guard.cmd`](./hook-guard.cmd). Không cho phép Member truy cập file ngoài `cwd` / `discord-attachments/<channelId>` / `discord-temp/<channelId>`.
+5. **Definition of Done (bắt buộc sau mọi thay đổi):**
+   * Thêm 1 mục mới lên **đầu** [`CHANGELOG.md`](./CHANGELOG.md) theo template sẵn.
+   * Cập nhật [`AGENTS.md`](./AGENTS.md) (và [`README.md`](./README.md) nếu đổi kiến trúc, lệnh `/` hoặc quy trình vận hành).
+   * Chạy `node scripts/verify.mjs` xác nhận `0 failed`.
+   * Restart daemon đúng chuẩn (tránh chạy 2 instance):
+     ```powershell
+     .\stop.bat
+     schtasks /Run /TN "AntigravityDiscordBridge"
+     ```
+   * Chờ 3–4 giây rồi chạy lại `node scripts/verify.mjs` và kiểm tra cuối `bot.log` xác nhận `[guard] Registered discord-bridge-rbac-guard`, `[mcp] Desktop bridge listening` và `[gateway] Ready as sickyturtlez#7297`.
+
+---
+
+## 2. Tổng quan & Bản đồ Tra cứu Nhanh (`Đổi gì → Sửa file nào`)
+
+Cầu nối chat 2 chiều, **Automation Hub** và **Bot quản lý Server + Voice** giữa **Discord** và **Antigravity CLI (`agy`)**, chạy độc lập nền qua Windows Task Scheduler (`AntigravityDiscordBridge`, `wscript.exe //B run-hidden.vbs` → `node bot.mjs --log`, RAM rảnh ~74 MB).
+
+```text
+Discord (DM / Kênh / Thread / Voice)
+  │  WebSocket Gateway + 26 Slash Commands + Action Buttons
+  ▼
+bot.mjs (Orchestrator: --mcp-stdio, --hook-guard, Dispatch, Stream, Buttons)
+  ├─ RBAC & Isolation: lib/auth.mjs + lib/guard.mjs (PreToolUse hook) + lib/quota.mjs
+  ├─ Server Utilities: lib/onboard.mjs + lib/announce-card.mjs + lib/report.mjs (0 token AI)
+  ├─ Automation Hub:   lib/cron.mjs + lib/webhook.mjs + lib/runner.mjs (Priority Queue)
+  ├─ Desktop & Web:    lib/desktop.mjs (8 MCP tools, Chrome AM 9229) + agent-desktop + firecrawl
+  └─ Voice Music:      lib/music.mjs (yt-dlp + ffmpeg -c:a copy Opus + @discordjs/voice)
+```
+
+| Khi cần thay đổi... | File chính | Test tương ứng |
+| :--- | :--- | :--- |
+| Luồng chat, Slash handler, Action Buttons, stream tiến độ, MCP stdio/hook entry | [`bot.mjs`](./bot.mjs) | `node scripts/verify.mjs` |
+| Phân quyền Admin/Member, `channelRules`, `autoOnboard`, `allowFirecrawl`, `/access channel` | [`lib/auth.mjs`](./lib/auth.mjs) | [`test/auth.test.mjs`](./test/auth.test.mjs) |
+| Chặn cứng `PreToolUse` (`agent-desktop`, `firecrawl`, `chrome-devtools`, `BypassSandbox`, bảo vệ process) | [`lib/guard.mjs`](./lib/guard.mjs), [`hook-guard.cmd`](./hook-guard.cmd) | [`test/guard.test.mjs`](./test/guard.test.mjs) |
+| Hàng đợi ưu tiên (`User > Webhook > Cron`), chống sleep, prompt routing (`quick-files`, Desktop vs `agent-desktop`, Firecrawl vs Chrome AM) | [`lib/runner.mjs`](./lib/runner.mjs) | [`test/runner.test.mjs`](./test/runner.test.mjs) |
+| 8 MCP host tool (`open_in_chrome`, `open_app`, `send_to_discord`, `text_to_speech`, `capture_desktop`, `desktop_windows`, Chrome AM status, `discord-temp/<channelId>`) | [`lib/desktop.mjs`](./lib/desktop.mjs) | [`test/desktop.test.mjs`](./test/desktop.test.mjs) |
+| Gateway WebSocket, `GUILD_MEMBERS` intent & fallback `4014`, Heartbeat/Zombie watchdog | [`lib/discord-gateway.mjs`](./lib/discord-gateway.mjs) | [`test/discord-gateway.test.mjs`](./test/discord-gateway.test.mjs) |
+| Tự tạo/thu hồi phòng `#ai-<slug>`, khóa read-only `#instructions`/`#announcement`, câu chào mừng | [`lib/onboard.mjs`](./lib/onboard.mjs) | [`test/onboard.test.mjs`](./test/onboard.test.mjs) |
+| Banner PNG trong suốt join/leave `#announcement` (`.NET System.Drawing`) | [`lib/announce-card.mjs`](./lib/announce-card.mjs) | *(manual visual check)* |
+| Hạn mức lượt/token/cooldown/ổ đĩa Member | [`lib/quota.mjs`](./lib/quota.mjs) | [`test/quota.test.mjs`](./test/quota.test.mjs) |
+| Báo cáo tổng kết cuối ngày 0 token AI & thống kê cảnh báo bảo mật | [`lib/report.mjs`](./lib/report.mjs) | [`test/report.test.mjs`](./test/report.test.mjs) |
+| Lập lịch Cron bền vững (`every`, `in`, `daily`, POSIX 5 trường) | [`lib/cron.mjs`](./lib/cron.mjs) | [`test/cron.test.mjs`](./test/cron.test.mjs) |
+| HTTP Webhook Server (Bearer / `X-Webhook-Secret` / HMAC-SHA256, rate limit, dedup, timeout) | [`lib/webhook.mjs`](./lib/webhook.mjs) | [`test/webhook.test.mjs`](./test/webhook.test.mjs) |
+| Phát nhạc Discord Voice `/play` (YouTube/YTM/SoundCloud/Spotify, Opus passthrough, 4 chế độ, TTL URL) | [`lib/music.mjs`](./lib/music.mjs) | [`test/music.test.mjs`](./test/music.test.mjs) |
+| Schema 26 Slash Commands `/` & dynamic autocomplete | [`lib/slash.mjs`](./lib/slash.mjs) | [`test/slash.test.mjs`](./test/slash.test.mjs) |
+| Tiện ích Snowflake 64-bit, atomic JSON, canonical path check, Reply extractor | [`lib/utils.mjs`](./lib/utils.mjs) | [`test/utils.test.mjs`](./test/utils.test.mjs) |
+
+---
+
+## 3. Thành phần cài đặt & cấu hình ngoài repo
 * **Antigravity CLI:** `C:\Users\Admin\AppData\Local\agy\bin\agy.exe` (đã xác thực OAuth).
-* **Chạy ngầm tự động:** Windows Task Scheduler tên `AntigravityDiscordBridge` (`Logon Mode: Interactive only`, trigger khi đăng nhập, không giới hạn thời gian chạy, cho phép chạy bằng pin).
-  * Task chạy `wscript.exe //B run-hidden.vbs` → khởi chạy ẩn `node bot.mjs --log`.
-  * Log ghi tại `bot.log`; khóa đơn tiến trình tại `bot.pid`.
-* **Cấu hình MCP toàn cục ngoài repo (`C:\Users\Admin\.gemini\config\mcp_config.json`):**
-  * `discord-bridge-desktop`: `node bot.mjs --mcp-stdio` (do `bot.mjs` tự đăng ký khi khởi động qua `ensureMcpConfigRegistered()`).
-  * `chrome-devtools`: `C:\Users\Admin\.gemini\config\mcp-tools\node_modules\chrome-devtools-mcp\out\Default\gen\src\bin\chrome-devtools-mcp.js --browserUrl=http://127.0.0.1:9229 --no-usage-statistics --no-performance-crux`.
+* **Windows Task Scheduler:** Task `AntigravityDiscordBridge` (`Logon Mode: Interactive only`, trigger khi đăng nhập, chạy `wscript.exe //B run-hidden.vbs` → `node bot.mjs --log`). Log ghi tại `bot.log`; khóa đơn tiến trình tại `bot.pid`.
+* **Cấu hình MCP & Security Hook toàn cục (`C:\Users\Admin\.gemini\config\`):**
+  * `mcp_config.json` → `discord-bridge-desktop`: `node bot.mjs --mcp-stdio` (tự đăng ký idempotent qua `ensureMcpConfigRegistered()`).
+  * `mcp_config.json` → `chrome-devtools`: `--browserUrl=http://127.0.0.1:9229 --no-usage-statistics --no-performance-crux`.
+  * `hooks.json` → `discord-bridge-rbac-guard`: `PreToolUse` gọi `hook-guard.cmd` → `node bot.mjs --hook-guard` (tự đăng ký idempotent qua `ensureSecurityHookRegistered()`; thoát no-op `exit /b 0` không spawn Node ngoài phiên Discord bridge để không ảnh hưởng quyền mặc định của IDE).
+  * Plugins toàn cục đang cài: `agent-desktop`, `firecrawl`, `chrome-devtools-plugin`, `archify`, `ponytail`, `taste-skill`.
 * **Chrome AM (trình duyệt riêng cho bot):**
-  * Profile tách biệt: `C:\Users\Admin\AppData\Local\Google\Chrome AM User Data` (`History` đã copy từ Chrome chính; dùng tài khoản Google phụ).
-  * Shortcut Desktop: `C:\Users\Admin\Desktop\Chrome AM.lnk` (chạy `--remote-debugging-port=9229 --user-data-dir="C:\Users\Admin\AppData\Local\Google\Chrome AM User Data" --no-first-run --no-default-browser-check`).
+  * Profile: `C:\Users\Admin\AppData\Local\Google\Chrome AM User Data` (cổng debug `http://127.0.0.1:9229`).
+  * Shortcut Desktop: `C:\Users\Admin\Desktop\Chrome AM.lnk`.
+* **Thư viện chia sẻ & Media binaries ngoài repo:**
+  * `C:\ProgramData\agy-shared-tools` (`@discordjs/voice`, `@snazzah/davey`, `prism-media`, `opusscript`, `quick-files`, `pptxgenjs`, `exceljs`, `xlsx`, `docx`, `pdfkit`, `archiver`, `bin\yt-dlp.exe`).
+  * `C:\ffmpeg\ffmpeg.exe`.
 
-## Cấu trúc file trong repo
-* `bot.mjs` — Điểm vào chính: `--mcp-stdio` proxy, bộ xử lý Slash Command (`/`) và `INTERACTION_CREATE`, điều phối luồng chạy `agy -p ... --output-format stream-json`, kết nối `DiscordGatewayClient`, `cronManager` và `webhookServer`.
-* `lib/discord-gateway.mjs` — `DiscordGatewayClient` (`WebSocket`, `GUILD_MEMBERS` intent & fallback `4014`, Heartbeat, Resume, Backoff, Zombie-Socket & Hello Timeout Watchdog).
-* `lib/runner.mjs` — Hàng đợi giới hạn đồng thời toàn cục có ưu tiên (`createPrioritySemaphore`: User `1` > Webhook `2` > Cron `3`), chống Windows auto-sleep khi đang có lượt chạy (`createSleepInhibitor`), tối ưu tiêm prompt `CHROME_DEVTOOLS_FAST_GUIDE` (`buildEffectivePrompt`), và `resolveTurnTimeout` (`memberPrintTimeout` mặc định `5m` vs Admin `15m`).
-* `lib/utils.mjs` — Tiện ích thuần: bảo toàn Snowflake 64-bit (`quoteSnowflakeLiterals`, bao gồm `onboardedUserId`, `categoryId`, `allowGuildIds`), atomic JSON (`writeJson`), kiểm tra đường dẫn chống thoát thư mục/symlink (`isPathInsideDir`), format số/kích thước.
-* `lib/auth.mjs` — Hệ thống phân quyền RBAC (`adminUserIds`, `autoOnboard`, `channelRules` kế thừa xuống Thread, khóa Member trong `cwd` + `sandbox` + lọc lệnh `/` qua `MEMBER_ALLOWED_COMMANDS` + lọc MCP tool qua `AGY_DISCORD_ALLOWED_TOOLS`), parser `/access channel`.
-* `lib/onboard.mjs` — Engine tự động cấp/thu hồi kênh Private + thư mục sandbox + ghi rule RBAC (`createMemberProvisioner`: `onboardMember`, `offboardMember`, `setChannelPrivacy`, `sanitizeMemberSlug`).
-* `lib/announce-card.mjs` — Trình tạo banner PNG nền trong suốt (avatar tròn viền xanh/đỏ, `<username> vừa tham gia/rời khỏi server`, `Thành viên #N` / `Còn lại N thành viên`) qua `.NET System.Drawing` cho kênh `#announcement`.
-* `lib/desktop.mjs` — MCP host tools (`open_in_chrome`, `open_app`, `open_desktop_target`, `send_to_discord` hỗ trợ `delete_after_send`, `text_to_speech` Cloud TTS MP3, `capture_desktop`, `desktop_clipboard`, `desktop_windows` gồm `close_chrome_am`), kiểm tra nhanh `getChromeAmStatus()` và dọn tệp tạm `discord-temp`.
-* `lib/cron.mjs` — Bộ lập lịch bền vững lưu trong `state.crons` (`every`, `in`, `daily HH:MM`, cron POSIX 5 trường) + parser `/cron add`.
-* `lib/webhook.mjs` — HTTP Webhook Server (`127.0.0.1` mặc định, xác thực Bearer / `X-Webhook-Secret` / HMAC-SHA256 `X-Hub-Signature-256`, rate limit, `dedupWindowSec`, stage payload >2500 ký tự ra đĩa, phản hồi `202 Accepted`).
-* `lib/music.mjs` — Trình phát nhạc Discord Voice (`@discordjs/voice` + `@snazzah/davey` + `opusscript` đặt ngoài repo tại `C:\ProgramData\agy-shared-tools`, `yt-dlp.exe` `--no-cache-dir` + `C:\ffmpeg\ffmpeg.exe` passthrough Opus `-c:a copy` / fallback `libopus` đơn luồng không GPU): phân loại bài hát & playlist YouTube (`playlist` / `?list=`), YouTube Music (`playlist` / `?list=` / `browse`), SoundCloud (`/sets/` / `/albums/`), Spotify (embed/oembed → YouTube search), Direct Audio & Search; hàng đợi theo server (`50` bài, nạp playlist `25` bài), 4 chế độ phát (`Tuần tự` / `Shuffle` / `Repeat 1 bài` / `Repeat tất cả`), tự rời phòng khi rảnh (`2` phút), khi tạm dừng quá lâu (`10` phút) hoặc khi phòng không còn ai (`1` phút) và nút `[⏸️ Tạm dừng]` / `[⏭️ Qua bài]` / `[➡️ Tuần tự]` / `[🧹 Clear Queue]` / `[⏹️ Dừng & Rời]`.
-* `lib/slash.mjs` — Định nghĩa schema 26 Slash Commands `/` (8 lệnh thành viên gồm `/play` + 18 lệnh Admin với `default_member_permissions: "8"`), trình chuyển đổi sang lệnh chuẩn hóa và gợi ý autocomplete động.
-* `lib/quota.mjs` — Quản lý hạn mức theo ngày/cooldown cho Member (`dailyMaxTurns`, `dailyMaxTokens`, `cooldownSec`), giới hạn dung lượng thư mục (`workspaceMaxMb`) và cờ `blockBypassSandbox`.
-* `lib/report.mjs` — Bộ tổng kết cuối ngày cho Admin (`0` token AI: tổng hợp lượt, token, dung lượng phòng Member & cảnh báo Sandbox) + scheduler chạy định kỳ theo `dailyReport` (`HH:MM`).
-* `config.json` / `config.example.json` — Cấu hình cục bộ / file mẫu.
-* `state.json` — Lưu `conversationId`, `cwd`, `projectId`, `model`, `effort`, `mode`, `sandbox`, `showFooter`, `streamProgress`, `autoThread`, `lastPromptText`, thống kê token usage, `memberUsage` theo ngày, `dailyAlerts`, `dailyReport` và danh sách `crons`.
-* `run-hidden.vbs`, `start.bat`, `stop.bat` — Bộ launcher & dừng tiến trình bot + Task Scheduler.
-* `test/*.test.mjs` — Bộ unit test zero-dependency chạy bằng `node --test` (kiểm thử `utils`, `auth`, `quota`, `report`, `desktop`, `runner`, `discord-gateway`, `onboard`, `slash`, `music`).
-* `README.md`, `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md` — Tài liệu sử dụng, handoff và nhật ký thay đổi.
+---
 
-## Quyết định thiết kế & lưu ý kỹ thuật cốt lõi
-* **Chế độ mặc định của `agy`:** Mode `auto` không truyền `--mode auto` (vì `--mode auto` ở bản CLI hiện tại chưa mở rollout nên tự hạ về `default`); thay vào đó truyền `--settings` JSON (`toolPermission: "always-proceed"`, `allowNonWorkspaceAccess`, `enableTerminalSandbox`) tùy biến theo Admin hay RBAC Member/Webhook.
-* **Mở Chrome AM, Pipeline Desktop, Cloud TTS & Bộ thư viện dùng chung (`agy-shared-tools`):** `RunCommand` của `agy` tự đóng cây tiến trình con ngay khi lệnh kết thúc. `bot.mjs` mở HTTP loopback endpoint xác thực Bearer trên `127.0.0.1:0` và chỉ truyền `AGY_DISCORD_MCP_PORT`/`AGY_DISCORD_MCP_TOKEN`/`AGY_DISCORD_MCP_CWD`/`AGY_DISCORD_CHANNEL_ID`/`AGY_DISCORD_RUN_ID`/`AGY_DISCORD_ALLOWED_TOOLS` vào tiến trình `agy` con (ngoài Discord bot thì `discord-bridge-desktop` trả `tools: []`), cung cấp 8 tool: `open_in_chrome`, `open_app`, `open_desktop_target`, `send_to_discord`, `text_to_speech`, `capture_desktop`, `desktop_clipboard`, `desktop_windows` (gồm `close_chrome_am` chỉ đóng đúng Chrome AM). Song song, `C:\ProgramData\agy-shared-tools` (đã cấp quyền đọc chỉ-thực-thi `ALL APPLICATION PACKAGES:(OI)(CI)(RX)` để tiến trình sandbox `agy --sandbox` đọc được mà không bị `Access is denied` như thư mục `~/.gemini`) cài sẵn bộ helper `quick-files`: `quick-deck` (`.pptx`), `quick-sheet` (`.xlsx`/`.csv`), `quick-doc` (`.docx`), `quick-pdf` (`.pdf`), `quick-html` (`.html`), `buildZip` (`.zip`), `buildChartSvg` (`.svg`), cùng `pptxgenjs`, `exceljs`, `xlsx`, `docx`, `pdfkit`, `archiver` và chỉ gắn qua `NODE_PATH` (tuyệt đối **không** truyền `--add-dir` cho thư mục thư viện, vì `agy --add-dir` làm lệch `cwd` của `run_command`); [`lib/runner.mjs`](./lib/runner.mjs) (`buildSharedToolsHint()`) tự động bơm đúng signature helper theo định dạng file người dùng yêu cầu.
-* **Gửi ảnh & file 2 chiều (Discord ↔ `agy`):**
-  * **Discord → `agy`:** `downloadIncomingAttachments()` xác thực CDN HTTPS Discord, giới hạn `25MB`, lưu vào `~/.gemini/antigravity-cli/discord-attachments/<channelId>/`, gắn `--add-dir` và tự dọn file > 7 ngày.
-  * **`agy` → Discord:** `send_to_discord` hỗ trợ `delete_after_send` (bảo vệ không xóa file trong workspace dù workspace nằm dưới `%TEMP%`), tự chặn gửi `config.json` (theo cả đường dẫn chuẩn hóa symlink) và auto-upload ảnh Markdown `![alt](localPath)` (với session không phải Admin sẽ lọc chỉ cho phép ảnh nằm trong workspace/attachments/temp của kênh).
-* **Tương tác trang web qua `chrome-devtools` & Pre-check:** Gắn trực tiếp vào **Chrome AM** trên `http://127.0.0.1:9229`. [`buildEffectivePrompt()`](./bot.mjs) chỉ chèn `CHROME_DEVTOOLS_FAST_GUIDE` khi `execPolicy.allowChrome` bật, `rawPrompt` khớp `WEB_BROWSER_HINT_RE`, đồng thời gọi trước `getChromeAmStatus(300)` để báo rõ Chrome AM đang chạy hay đang tắt (tránh lượt gọi `list_pages` bị chờ `ECONNREFUSED`).
-* **Phạm vi Discord & RBAC đa người dùng:** DM chỉ dành cho Root Admin (`allowedUserId`) và `adminUserIds`. Server hỗ trợ `allowedChannelIds`, kênh tự phát hiện `free-chat`, kênh hướng dẫn `#instructions` (bot tự đồng bộ nội dung chỉ gồm lệnh thành viên bằng ngôn ngữ thân thiện cho người dùng phổ thông, không lộ lệnh Admin/kênh nội bộ, và tự khóa **read-only** cho `@everyone` qua `setChannelReadOnly`), và kênh nhóm qua `channelRules` (cho phép user/role cụ thể hoặc cả kênh vào một `cwd` an toàn với `sandbox: true`, `allowNonWorkspaceAccess: false`, chặn lệnh Admin, tùy chọn ép model riêng qua `rule.model` & `autoOnboard.defaultModel` bằng `/access model` — mức suy luận đã nằm sẵn trong `model_id`, và thu hẹp MCP tool còn `MEMBER_SAFE_MCP_TOOLS` (`send_to_discord`, `text_to_speech`) trong phạm vi workspace). Hỗ trợ `/access` và `/reload` nóng `config.json`.
-* **Auto-Onboard & Thông báo `#announcement` (`lib/onboard.mjs`, `bot.mjs`, `GUILD_MEMBERS` Intent):** Mặc định `autoOnboard.enabled = true`. `DiscordGatewayClient` tự bật `GUILD_MEMBERS` (`1 << 1`) khi `autoOnboard.enabled` hoặc cấu hình kênh thông báo `#announcement` (`announceChannelId`/`announceChannelName`) và có cơ chế fallback an toàn nếu Gateway trả mã đóng `4014` do chưa bật `Server Members Intent` trong Discord Developer Portal (tránh crash loop; `/reload` tự thử bật lại intent). Khi nhận `GUILD_MEMBER_ADD` hoặc `/access onboard`, `createMemberProvisioner` tạo thư mục `<rootDir>/<slug>`, tạo category `Member Workspaces` (hoặc `categoryName`/`categoryId` cấu hình) nếu chưa có, tạo kênh text riêng tư `#ai-<slug>` (`permission_overwrites` chặn `@everyone`, mở cho member + bot `sickyturtlez`), lưu `channelRules` (kèm `onboardedUserId`) vào `config.json` và gửi tin nhắn chào mừng; `GUILD_MEMBER_REMOVE` / `/access offboard` tự thu hồi rule/quyền (xóa kênh Discord nếu `deleteChannelOnLeave: true`). Song song, `sendMemberAnnouncement("join" | "leave", data)` tự gửi tin nhắn tag bên ngoài + Embed giữ nguyên câu thông báo kèm ảnh banner `announce-card.png` (avatar tròn viền xanh/đỏ + bộ đếm `guildMemberCounts`) vào `#announcement`. Hỗ trợ `/access private` để ẩn kênh nhạy cảm khỏi `@everyone`.
-* **Automation Hub (Cron & Webhook):** `cronManager` đọc/lưu `state.crons` chạy chu kỳ 15s (hỗ trợ `every`/`in`/`daily`/cron POSIX 5 trường, quản lý bằng `/cron`). `webhookServer` tạo HTTP server cục bộ nhận `POST /webhook/<hookId>`, xác thực secret/HMAC, chống spam/trùng lặp, tự tạo Thread chẩn đoán chạy dưới policy riêng an toàn (mặc định không mở Desktop/Chrome trừ khi bật rõ trên hook) và hỗ trợ `/webhook test`.
-* **Native Discord Slash Commands (`/`), Action Buttons & Reply Context:** Toàn bộ 26 lệnh đều chạy qua Slash Command `/` (`lib/slash.mjs`). Song song, `bot.mjs` gắn **Action Buttons** (`MESSAGE_COMPONENT`, `interaction.type === 3`) gồm `[⏹️ Dừng ngay]` khi stream tiến độ, `[🔄 Thử lại] [📝 Tóm tắt ngắn] [🗑️ Xóa Thread / 🆕 Phiên mới]` dưới câu trả lời hoàn chỉnh và `[⏸️ Tạm dừng] [⏭️ Qua bài] [⏹️ Dừng & Rời]` dưới trình phát `/play`; đồng thời `onMessageCreate` trích xuất `referenced_message` (`extractReplyContext`) kèm tệp/ảnh đính kèm khi người dùng Reply tin nhắn cũ cùng kênh. Lệnh `/play` được mở cho mọi Member trong `#free-chat` và các kênh public/voice của server (trừ `#instructions`, `#announcement` và phòng riêng của người khác).
-* **Quota & Giám sát Sandbox cho Member (`lib/quota.mjs`, `/access quota`, `/access security`):** Theo dõi `state.memberUsage` theo ngày (`YYYY-MM-DD` cục bộ), giới hạn cooldown/lượt/token/dung lượng thư mục Member (`memberLimits`), tiêm quy tắc cấm `BypassSandbox` trong `Scoped Session`, và tự chặn + gửi cảnh báo về `#admin` nếu phiên không phải Admin cố truyền `BypassSandbox: true` trong stream sự kiện `agy`.
-* **Đồng bộ xóa Thread, Usage & Stream:** Không thay đổi hành vi cốt lõi (`THREAD_DELETE` / `/delete` tự xóa kèm tin nhắn gốc đã tạo Thread ở kênh cha qua `deleteThreadStarterMessage`, footer `turnDurationSec`, `/usage` *(kèm hạn mức còn lại cho Member)*, `--output-format stream-json` gộp sửa tin nhắn `1400ms` / heartbeat `5000ms` khi `/stream on`, fallback `json` + `typing` khi `/stream off`).
+## 4. Quyết định thiết kế & lưu ý kỹ thuật cốt lõi
+* **Chế độ mặc định của `agy`:** Mode `auto` không truyền `--mode auto` mà truyền `--settings` JSON (`toolPermission: "always-proceed"`, `allowNonWorkspaceAccess`, `enableTerminalSandbox`) tùy theo Admin hay RBAC Member/Webhook. Nội bộ `bot.mjs` luôn chạy `--output-format stream-json` để watchdog bảo mật (`onBypassSandbox`, `onBlockedMcp`) vẫn hoạt động cả khi người dùng tắt `/stream off` (chỉ tắt việc post/edit tin nhắn tiến độ trên Discord).
+* **Phân vai 4 MCP cho Admin (`lib/runner.mjs`):**
+  * **`discord-bridge-desktop` (`lib/desktop.mjs`):** mở app/file/Chrome AM sống dai sau lượt chat (`open_app`, `open_in_chrome`, `open_desktop_target`), gửi file lên Discord (`send_to_discord`), Cloud TTS (`text_to_speech`), chụp màn hình 1 bước (`capture_desktop`), đóng riêng Chrome AM (`close_chrome_am`). Ngoài phiên Discord bridge trả `tools: []`.
+  * **`agent-desktop`:** đọc UI bên trong app Windows (`desktop_snapshot`, `desktop_find`), bấm nút/điền form headless (`desktop_click`, `desktop_set_value`), xem Windows Notifications.
+  * **`firecrawl`:** ưu tiên `firecrawl_scrape`/`firecrawl_parse`/`firecrawl_search` cho URL, docs, PDF công khai không cần đăng nhập (nhanh, sạch, không bật cửa sổ trình duyệt).
+  * **`chrome-devtools` (Chrome AM `9229`):** dành cho trang cần đăng nhập, tương tác SPA (click/scroll/comment/video) hoặc chụp ảnh giao diện thực tế; có pre-check `getChromeAmStatus(300)` trước khi gọi.
+* **Cách ly đa người dùng (RBAC + Per-Channel Temp/Attachments):**
+  * DM chỉ cho Root Admin (`allowedUserId`) và `adminUserIds`.
+  * Member bị khóa trong `cwd` riêng + `--sandbox` + `MEMBER_ALLOWED_COMMANDS` (8 lệnh) + `MEMBER_SAFE_MCP_TOOLS` (`send_to_discord`, `text_to_speech`) + chốt chặn cứng `PreToolUse` (`lib/guard.mjs`).
+  * Tệp đính kèm tải từ Discord lưu cô lập theo kênh tại `~/.gemini/antigravity-cli/discord-attachments/<channelId>/` (tự dọn >7 ngày); tệp tạm của `capture_desktop` & `text_to_speech` cô lập theo kênh tại `~/.gemini/antigravity-cli/discord-temp/<channelId>/` (tự dọn >24h), ngăn hoàn toàn rò rỉ chéo giữa phòng Admin và phòng Member.
+  * `send_to_discord` tự chặn upload `config.json` (theo cả đường dẫn chuẩn hóa symlink).
+* **Ổn định chạy nền 24/7:**
+  * `channelQueues` tự dọn entry khi hoàn tất; `channelMetaCache`, `channelLastPrompts`, `deletedChannels` dùng giới hạn FIFO (`500` mục) tránh tăng RAM vô hạn.
+  * Khi hủy lượt bằng `/stop` hoặc `[⏹️ Dừng ngay]` trên Windows, `runAgy` chạy thêm `taskkill /PID <pid> /T /F` để tránh tiến trình con mồ côi.
+  * `lib/music.mjs` gắn `streamResolvedAt` với TTL `2` giờ (`STREAM_URL_TTL_MS`) để chế độ `Repeat 1` / `Repeat tất cả` tự làm mới signed stream URL khi hết hạn.
+  * `lib/webhook.mjs` có `req.setTimeout(15000)` và kiểm tra auth trước khi trả `404` nhằm tránh lộ danh sách `hookId`.
+* **Auto-Onboard, `#announcement`, `#instructions`, Slash Commands & Buttons:**
+  * `GUILD_MEMBERS` intent tự bật khi `autoOnboard.enabled` hoặc có `#announcement`, kèm fallback an toàn trên close code `4014`.
+  * `#instructions` và `#announcement` tự khóa **read-only** cho `@everyone`; `#announcement` đếm `Math.max(0, memberCount - 1)` (trừ bot).
+  * Cụm Action Buttons chỉ giữ ở tin nhắn cuối cùng (tự gỡ `components: []` ở thẻ cũ cho cả câu trả lời AI lẫn thẻ nhạc `/play`).
+  * Xóa Thread (`THREAD_DELETE` hoặc `/delete`) tự dọn `state.json`, conversation `agy`, attachments và xóa kèm tin nhắn gốc đã tạo Thread (`deleteThreadStarterMessage`).

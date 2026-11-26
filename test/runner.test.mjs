@@ -65,9 +65,9 @@ test("resolveTurnTimeout and normalizeMaxConcurrentRuns apply safe defaults", ()
   );
 });
 
-test("buildEffectivePrompt isolates members and avoids duplicate Chrome guide injection", () => {
+test("buildEffectivePrompt isolates members, splits Desktop/agent-desktop roles, and routes Firecrawl vs Chrome AM", () => {
   const memberRes = buildEffectivePrompt({
-    execPolicy: { allowDesktopTools: false, allowChrome: false, cwd: "C:\\safe" },
+    execPolicy: { isAdmin: false, allowDesktopTools: false, allowChrome: false, allowFirecrawl: false, cwd: "C:\\safe" },
     chState: { conversationId: null },
     prompt: "tạo file powerpoint giới thiệu triết gia",
     mcpBridgeEnabled: true,
@@ -76,21 +76,25 @@ test("buildEffectivePrompt isolates members and avoids duplicate Chrome guide in
   assert.equal(memberRes.injectedFullWebGuide, false);
   assert.equal(memberRes.effectivePrompt.includes("chrome-devtools quick signatures"), false);
   assert.equal(memberRes.effectivePrompt.includes("BypassSandbox: true"), true);
+  assert.equal(memberRes.effectivePrompt.includes("agent-desktop, firecrawl, or chrome-devtools"), true);
   assert.equal(memberRes.effectivePrompt.includes("text_to_speech"), true);
   assert.equal(memberRes.effectivePrompt.includes("quick-deck"), true);
   assert.equal(memberRes.effectivePrompt.includes("pptxgenjs"), true);
 
   const adminTurn1 = buildEffectivePrompt({
-    execPolicy: { allowDesktopTools: true, allowChrome: true, cwd: "C:\\admin" },
+    execPolicy: { isAdmin: true, allowDesktopTools: true, allowChrome: true, allowFirecrawl: true, cwd: "C:\\admin" },
     chState: { conversationId: null, chromeGuideInjected: false },
     prompt: "check google.com",
     mcpBridgeEnabled: true,
   });
   assert.equal(adminTurn1.injectedFullWebGuide, true);
   assert.equal(adminTurn1.effectivePrompt.includes("chrome-devtools quick signatures"), true);
+  assert.equal(adminTurn1.effectivePrompt.includes("Windows Desktop role split"), true);
+  assert.equal(adminTurn1.effectivePrompt.includes("agent-desktop_agent-desktop"), true);
+  assert.equal(adminTurn1.effectivePrompt.includes("firecrawl_scrape"), true);
 
   const adminTurn2 = buildEffectivePrompt({
-    execPolicy: { allowDesktopTools: true, allowChrome: true, cwd: "C:\\admin" },
+    execPolicy: { isAdmin: true, allowDesktopTools: true, allowChrome: true, allowFirecrawl: true, cwd: "C:\\admin" },
     chState: { conversationId: "conv-1", chromeGuideInjected: true },
     prompt: "check youtube.com",
     mcpBridgeEnabled: true,

@@ -50,6 +50,7 @@ test("buildDailyReportMessages summarizes member turns, disk usage, and sandbox 
         memberLimits: { dailyMaxTurns: 30, workspaceMaxMb: 1 },
         channelRules: {
           "999": { onboardedUserId: "111", cwd: tmpDir },
+          "888": { allowUserIds: ["222"], cwd: tmpDir },
         },
       },
       nowMs,
@@ -57,6 +58,7 @@ test("buildDailyReportMessages summarizes member turns, disk usage, and sandbox 
     const text = chunks.join("\n");
     assert.match(text, /Báo cáo tổng kết ngày/);
     assert.match(text, /<@111> \(<#999>\): 5\/30 lượt/);
+    assert.match(text, /<@222> \(<#888>\): 0\/30 lượt/);
     assert.match(text, /12,345` tokens/);
     assert.match(text, /⚠️/);
     assert.match(text, /1 cảnh báo/);

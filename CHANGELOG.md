@@ -18,6 +18,55 @@
 
 ---
 
+## [2026-11-27 06:06] — Sửa toàn bộ 9 phát hiện `ponytail-audit`, bổ sung unit test & chuẩn hóa quy trình bàn giao đa-Agent (`lib/desktop.mjs`, `lib/report.mjs`, `lib/music.mjs`, `lib/onboard.mjs`, `lib/webhook.mjs`, `bot.mjs`, `scripts/verify.mjs`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`)
+* **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
+* **Tóm tắt thay đổi:**
+  * **Khắc phục 9 phát hiện từ `ponytail-audit`:**
+    1. **Cách ly thư mục tạm theo kênh (`discord-temp/<channelId>/`)** trong [`lib/desktop.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/desktop.mjs) (`getChannelTempDir`, `pruneOldTempFiles`, `capture_desktop`, `text_to_speech`, `send_to_discord`) và [`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs) (`unsentImages`) — chặn triệt để rò rỉ chéo file tạm giữa Admin và Member.
+    2. **Sửa lỗi ánh xạ user trong báo cáo cuối ngày** ([`lib/report.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/report.mjs)): đổi `rule.allowedUserIds` → `rule.allowUserIds` để các kênh cấp bằng `/access channel` hiện đúng dung lượng đĩa & liên kết kênh.
+    3. **Tự làm mới signed stream URL khi phát lặp dài** ([`lib/music.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/music.mjs)): thêm `STREAM_URL_TTL_MS` (`2h`), `streamResolvedAt` và `isStreamUrlExpired()` cho `ensureFreshTrackStream()`.
+    4. **Sửa fallback tên model chào mừng** ([`lib/onboard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/onboard.mjs)): dùng `defaultHit?.label || defaultModel || 'Gemini 4 Hydrogen (Medium)'` thay vì cứng label cũ khi `availableModels` rỗng.
+    5. **Giới hạn kích thước cache runtime & dọn `channelQueues`** ([`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs)): tự xóa key `channelQueues` sau khi xong và dùng `setBoundedMap`/`addBoundedSet` (`500` mục) cho `channelMetaCache`, `channelLastPrompts`, `deletedChannels`.
+    6. **Kill sạch cây tiến trình con trên Windows khi `/stop`** ([`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs)): gọi `taskkill /PID <pid> /T /F` trong `abort()` của `runAgy()`.
+    7. **Siết an toàn HTTP Webhook** ([`lib/webhook.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/webhook.mjs)): thêm `req.setTimeout(15000)` (`408`) và trả `401` trước khi trả `404` với caller chưa xác thực để tránh lộ danh sách `hookId`.
+    8. **Mở rộng bộ unit test:** thêm [`test/cron.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/cron.test.mjs), [`test/webhook.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/webhook.test.mjs) và bổ sung test hồi quy vào [`test/auth.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/auth.test.mjs), [`test/desktop.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/desktop.test.mjs), [`test/report.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/report.test.mjs), [`test/music.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/music.test.mjs), [`test/onboard.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/onboard.test.mjs).
+    9. **Giữ security watchdog hoạt động kể cả khi `/stream off`** ([`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs)): luôn dùng `--output-format stream-json` nội bộ kèm `securityMonitor` nhẹ, chỉ tắt việc post/edit tin nhắn tiến độ trên Discord.
+  * **Hệ thống bàn giao chuẩn đa-Agent:**
+    * Tạo [`scripts/verify.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/scripts/verify.mjs) (`node scripts/verify.mjs`) kiểm tra 1 lệnh toàn bộ syntax, unit tests, `config.json` (redact secret), MCP/Security Hook, `bot.pid` và repo hygiene.
+    * Nâng cấp [`AGENTS.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/AGENTS.md) thành Master Handoff Playbook (Onboarding 60s, 5 Luật Thép, Bản đồ tra cứu file, mẫu prompt bàn giao), đồng bộ con trỏ [`CLAUDE.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/CLAUDE.md) và thêm [`GEMINI.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/GEMINI.md).
+* **File / Thành phần tác động (trong & ngoài repo):**
+  * Trong repo: `bot.mjs`, `lib/desktop.mjs`, `lib/report.mjs`, `lib/music.mjs`, `lib/onboard.mjs`, `lib/webhook.mjs`, `scripts/verify.mjs`, `test/cron.test.mjs`, `test/webhook.test.mjs`, `test/auth.test.mjs`, `test/desktop.test.mjs`, `test/report.test.mjs`, `test/music.test.mjs`, `test/onboard.test.mjs`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CHANGELOG.md`.
+* **Kiểm tra đã chạy:**
+  * `node scripts/verify.mjs`: toàn bộ syntax check, unit tests (`50/50` pass), config/MCP/Hook/PID/hygiene đều `PASS`.
+  * Restart daemon qua `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"`, xác minh `bot.pid` và `bot.log` (`[guard] Registered`, `[mcp] Desktop bridge listening`, `[gateway] Ready as sickyturtlez#7297`).
+
+---
+
+## [2026-11-27 06:00] — Chặn cứng MCP toàn cục (`agent-desktop`, `firecrawl`, `chrome-devtools`) cho Member/Webhook bằng `PreToolUse` hook & phân vai Desktop/Firecrawl cho Admin (`lib/guard.mjs`, `hook-guard.cmd`, `lib/auth.mjs`, `lib/runner.mjs`, `lib/webhook.mjs`, `lib/onboard.mjs`, `bot.mjs`)
+* **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
+* **Tóm tắt thay đổi:**
+  * **P0 — Chốt chặn cứng `PreToolUse` RBAC Guard ([`lib/guard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/guard.mjs), [`hook-guard.cmd`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/hook-guard.cmd), [`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs)):**
+    * Tự động đăng ký idempotent hook `discord-bridge-rbac-guard` vào `C:\Users\Admin\.gemini\config\hooks.json` qua `ensureSecurityHookRegistered()` khi bot khởi động.
+    * Wrapper [`hook-guard.cmd`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/hook-guard.cmd) thoát no-op `exit /b 0` (stdout rỗng, không spawn Node.js) đối với mọi phiên IDE/CLI ngoài Discord bridge (`AGY_DISCORD_GUARD_ACTIVE` chưa đặt), đảm bảo không làm chậm và không ghi đè chính sách quyền mặc định của IDE thường.
+    * Với phiên Member / Webhook (`AGY_DISCORD_IS_ADMIN=0`), `bot.mjs --hook-guard` chặn cứng (`decision: "deny"`) **trước khi tool kịp chạy** đối với: `agent-desktop`, `firecrawl` (khi `allowFirecrawl=false`), `chrome-devtools` & `browser_subagent` (khi `allowChrome=false`), `discord-bridge-desktop` ngoài allowlist, `list_resources`/`read_resource` trên server bị khóa, `list_plugin_accounts`, và `run_command` truyền `BypassSandbox: true`.
+    * Với cả Admin lẫn Member, bảo vệ các tiến trình hệ thống/cầu nối (`node`, `agy`, `antigravity`, `explorer`, ...) khỏi `agent-desktop` `desktop_close_app`.
+    * Bổ sung lớp cảnh báo thứ 2 (`onBlockedMcp`) trong stream watchdog của [`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs) để ghi nhận `recordSecurityAlert` và gửi cảnh báo về `#admin`, đồng thời bổ sung nhãn tiến độ tiếng Việt (`MCP_ACTION_LABELS`) cho các tool `agent-desktop` & `firecrawl`.
+  * **RBAC `allowFirecrawl` ([`lib/auth.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/auth.mjs), [`lib/webhook.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/webhook.mjs), [`lib/onboard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/onboard.mjs), [`config.example.json`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/config.example.json)):**
+    * Mặc định mở `allowFirecrawl: true` cho Admin, `false` cho Member (`autoOnboard`, `channelRules`) và Webhook; hỗ trợ `firecrawl:on|off` trong `/access channel`.
+  * **P1 — Phân vai rõ `discord-bridge-desktop` vs `agent-desktop` và định tuyến `Firecrawl` vs `Chrome AM` ([`lib/runner.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/runner.mjs)):**
+    * Cập nhật `buildEffectivePrompt()` giải quyết xung đột chỉ dẫn giữa `lib/desktop.mjs` và rule của plugin `agent-desktop`: dùng `discord-bridge-desktop` khi mở app/file/Chrome AM sống dai, gửi file Discord, Cloud TTS, chụp màn hình 1 bước hoặc đóng riêng Chrome AM; dùng `agent-desktop` để đọc UI bên trong app Windows (`desktop_snapshot`, `desktop_find`), thao tác headless không cướp chuột (`desktop_click`, `desktop_set_value`) và đọc thông báo Windows.
+    * Thêm `FIRECRAWL_HINT_RE` ưu tiên `firecrawl_scrape`/`firecrawl_parse`/`firecrawl_search` cho URL/tài liệu/PDF công khai không cần đăng nhập (không bật cửa sổ trình duyệt), chỉ mở Chrome AM khi cần đăng nhập hoặc tương tác SPA.
+  * **Kiểm thử:** Thêm [`test/guard.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/guard.test.mjs) và mở rộng [`test/auth.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/auth.test.mjs), [`test/runner.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/runner.test.mjs).
+* **File / Thành phần tác động (trong & ngoài repo):**
+  * Trong repo: `lib/guard.mjs`, `hook-guard.cmd`, `lib/auth.mjs`, `lib/runner.mjs`, `lib/webhook.mjs`, `lib/onboard.mjs`, `bot.mjs`, `config.example.json`, `test/guard.test.mjs`, `test/auth.test.mjs`, `test/runner.test.mjs`, `AGENTS.md`, `CHANGELOG.md`.
+  * Ngoài repo: `C:\Users\Admin\.gemini\config\hooks.json` (tự đăng ký mục `discord-bridge-rbac-guard`).
+* **Kiểm tra đã chạy:**
+  * `node --check` trên toàn bộ `.mjs` đã sửa/thêm, `node --test`: `41/41` pass.
+  * Live E2E với `agy.exe -p --settings '{"toolPermission":"always-proceed",...}' --sandbox` giả lập Member xác nhận `PreToolUse` hook chặn cứng `agent-desktop_agent-desktop/desktop_list_windows` trong `0.15s` (`tool call denied by pre-tool hook`).
+  * Restart daemon qua `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"`, xác minh `bot.pid` và `bot.log` (`[guard] Registered discord-bridge-rbac-guard`, `[mcp] Desktop bridge listening`, `[gateway] Ready as sickyturtlez#7297`).
+
+---
+
 ## [2026-11-17 03:43] — Sửa lỗi không tìm thấy module `quick-sheet` (`lib/runner.mjs`)
 * **Agent / Phiên:** Antigravity (`d0d63b24-d1f0-4246-83a6-9f832452641e`)
 * **Tóm tắt thay đổi:**

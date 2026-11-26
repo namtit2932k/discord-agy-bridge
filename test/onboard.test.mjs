@@ -37,7 +37,7 @@ test("buildMemberWelcomeMessage falls back cleanly when availableModels is empty
     availableModels: [],
   });
 
-  assert.match(msg, /Gemini 3\.8 Flash/);
+  assert.match(msg, /default cho bạn dùng model gemini-3\.8-flash-low/);
   assert.match(msg, /Gemini 4/);
   assert.match(msg, /Claude/);
   assert.match(msg, /GPT-OSS/);

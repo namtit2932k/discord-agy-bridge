@@ -7,6 +7,7 @@ import {
   canExecuteDiscordCommand,
   evaluateMessageAccess,
   normalizeChannelRules,
+  parseAccessChannelCommand,
   resolveTurnExecutionPolicy,
 } from "../lib/auth.mjs";
 
@@ -133,8 +134,31 @@ test("canExecuteDiscordCommand and resolveTurnExecutionPolicy isolate members fr
     assert.equal(exec.sandbox, true);
     assert.equal(exec.allowDesktopTools, false);
     assert.equal(exec.allowChrome, false);
+    assert.equal(exec.allowFirecrawl, false);
     assert.deepEqual(exec.allowedMcpTools, ["send_to_discord", "text_to_speech"]);
   } finally {
     fs.rmSync(memberWorkspace, { recursive: true, force: true });
+  }
+});
+
+test("parseAccessChannelCommand parses channel RBAC flags including firecrawl and rejects invalid inputs", () => {
+  const safeDir = fs.mkdtempSync(path.join(os.tmpdir(), "agy-access-parse-"));
+  try {
+    const parsed = parseAccessChannelCommand(
+      `<#444444444444444444> "${safeDir}" users:<@555555555555555555> mode:plan sandbox:on desktop:off chrome:off firecrawl:on`
+    );
+    assert.equal(parsed.channelId, "444444444444444444");
+    assert.equal(parsed.rule.cwd, path.resolve(safeDir));
+    assert.deepEqual(parsed.rule.allowUserIds, ["555555555555555555"]);
+    assert.equal(parsed.rule.mode, "plan");
+    assert.equal(parsed.rule.sandbox, true);
+    assert.equal(parsed.rule.allowDesktopTools, false);
+    assert.equal(parsed.rule.allowChrome, false);
+    assert.equal(parsed.rule.allowFirecrawl, true);
+
+    assert.throws(() => parseAccessChannelCommand("not-a-channel C:\\tmp"), /không hợp lệ/i);
+    assert.throws(() => parseAccessChannelCommand(`<#444444444444444444> "${safeDir}" mode:invalid`), /Mode không hợp lệ/);
+  } finally {
+    fs.rmSync(safeDir, { recursive: true, force: true });
   }
 });
