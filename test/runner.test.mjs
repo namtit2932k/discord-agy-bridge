@@ -102,6 +102,19 @@ test("buildEffectivePrompt isolates members, splits Desktop/agent-desktop roles,
   assert.equal(adminTurn2.injectedFullWebGuide, false);
   assert.equal(adminTurn2.effectivePrompt.includes("chrome-devtools quick signatures"), false);
   assert.equal(adminTurn2.effectivePrompt.includes("Chrome Quick Tip"), true);
+
+  // Static URL summarization prefers Firecrawl without injecting bulky Chrome AM guide
+  const firecrawlStatic = buildEffectivePrompt({
+    execPolicy: { isAdmin: true, allowDesktopTools: true, allowChrome: true, allowFirecrawl: true, cwd: "C:\\admin" },
+    chState: { conversationId: "conv-1", chromeGuideInjected: false },
+    prompt: "Đọc và tóm tắt nội dung trang https://nodejs.org/en giúp tôi",
+    chromeStatus: { running: false, tabCount: 0 },
+    mcpBridgeEnabled: true,
+  });
+  assert.equal(firecrawlStatic.injectedFullWebGuide, false);
+  assert.equal(firecrawlStatic.effectivePrompt.includes("firecrawl_scrape"), true);
+  assert.equal(firecrawlStatic.effectivePrompt.includes("Chrome AM Pre-check"), false);
+  assert.equal(adminTurn1.effectivePrompt.includes("INSIDE your current workspace cwd"), true);
 });
 
 test("createSleepInhibitor reference counts active holds", () => {

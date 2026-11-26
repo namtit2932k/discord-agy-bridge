@@ -18,6 +18,21 @@
 
 ---
 
+## [2026-11-27 06:23] — Tối ưu hướng dẫn `take_screenshot` trong `cwd` & bỏ tiêm thừa Chrome AM guide khi dùng Firecrawl đọc URL tĩnh (`lib/runner.mjs`, `test/runner.test.mjs`)
+* **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
+* **Tóm tắt thay đổi:**
+  * [`lib/runner.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/runner.mjs):
+    * Cập nhật `CHROME_DEVTOOLS_FAST_GUIDE` nêu rõ lưu `take_screenshot` bằng `filePath` **bên trong workspace `cwd`** (tránh lưu nhầm vào `~/.gemini/.../brain/` gây lỗi `Access denied` mất thêm 1 lượt retry) kèm `delete_after_send: true`.
+    * Bỏ qua tiêm `Chrome AM Pre-check` & `CHROME_DEVTOOLS_FAST_GUIDE` khi `allowFirecrawl=true` và prompt chỉ là đọc/tóm tắt/scrape URL tĩnh không yêu cầu tương tác trình duyệt (`preferFirecrawlOnly`), giúp tiết kiệm ~350 input tokens/lượt.
+  * [`test/runner.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/runner.test.mjs): Thêm assertion xác minh cả 2 tối ưu trên.
+* **File / Thành phần tác động (trong & ngoài repo):**
+  * Trong repo: `lib/runner.mjs`, `test/runner.test.mjs`, `CHANGELOG.md`.
+* **Kiểm tra đã chạy:**
+  * `node scripts/verify.mjs` (`50/50` pass, `0 failed, 0 warning(s)`).
+  * Restart daemon qua `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"`, xác minh `bot.pid` & `bot.log`.
+
+---
+
 ## [2026-11-27 06:06] — Sửa toàn bộ 9 phát hiện `ponytail-audit`, bổ sung unit test & chuẩn hóa quy trình bàn giao đa-Agent (`lib/desktop.mjs`, `lib/report.mjs`, `lib/music.mjs`, `lib/onboard.mjs`, `lib/webhook.mjs`, `bot.mjs`, `scripts/verify.mjs`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`)
 * **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
 * **Tóm tắt thay đổi:**
