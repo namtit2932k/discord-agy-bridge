@@ -13,3 +13,4 @@ workspaces/
 member-workspaces/
 no-project/
 .tmp*
+.archify/

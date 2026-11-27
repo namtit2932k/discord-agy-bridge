@@ -18,6 +18,22 @@
 
 ---
 
+## [2026-11-27 13:40] — Thiết kế lại `README.md` & `README.vi.md` trực quan hơn kèm 2 sơ đồ SVG dual-theme dựng bằng Archify (`README.md`, `README.vi.md`, `assets/diagrams/*.svg`, `.gitignore`)
+* **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
+* **Tóm tắt thay đổi:**
+  * **Tạo 2 sơ đồ Archify chuẩn mã nguồn (code-backed, xuất SVG Dark + Light):**
+    * [`assets/diagrams/architecture-dark.svg`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/diagrams/architecture-dark.svg) & [`architecture-light.svg`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/diagrams/architecture-light.svg): Sơ đồ kiến trúc tổng thể (`19` trích dẫn nguồn được Archify xác thực tại commit `6a4795e`), đạt đủ 4 cổng `validate`/`deliver`/`check`/`browser-check` (`quality: showcase`).
+    * [`assets/diagrams/security-flow-dark.svg`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/diagrams/security-flow-dark.svg) & [`security-flow-light.svg`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/assets/diagrams/security-flow-light.svg): Sơ đồ tuần tự luồng bảo mật RBAC 2 lớp & chốt chặn `PreToolUse` default-deny (`8` trích dẫn nguồn được xác thực), đạt đủ 4 cổng `showcase`.
+  * **Thiết kế lại [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md) & [`README.vi.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.vi.md):**
+    * Dùng `<picture>` tự động đổi Dark/Light cho cả Logo (`logo-white.png` / `logo-black.png`) lẫn 2 sơ đồ Archify SVG.
+    * Bổ sung hệ thống icon nhất quán, thanh điều hướng nhanh có anchor tường minh (`#highlights`, `#architecture`, `#features`, `#security`, `#quick-start`, `#commands`, `#handoff`), bảng so sánh trực quan (Bài toán ↔ Giải pháp, 4 MCP Routing, ma trận quyền Admin / Member / Webhook), khung GitHub Alert (`TIP`, `IMPORTANT`, `NOTE`) và khối thu gọn `<details>` cho 18 lệnh Admin + cây thư mục.
+  * Thêm `.archify/` vào [`.gitignore`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/.gitignore) để giữ repo sạch không dính tệp dựng tạm.
+* **File / Thành phần tác động:**
+  * [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md), [`README.vi.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.vi.md), [`.gitignore`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/.gitignore), [`CHANGELOG.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/CHANGELOG.md), `assets/diagrams/architecture-{dark,light}.svg`, `assets/diagrams/security-flow-{dark,light}.svg`.
+* **Kiểm tra đã chạy:**
+  * Archify `finalize --quality showcase --repo-root` đạt `pass` cả 2 sơ đồ (`0` diagnostics, `browser-check` pass ở các viewport `1440px`–`2048px`, cả `light` & `dark`).
+  * Kiểm tra 100% liên kết nội bộ & anchor trong `README.md` / `README.vi.md` + chạy `node scripts/verify.mjs`.
+
 ## [2026-11-27 13:27] — Chuyển `PreToolUse` guard sang default-deny cho MCP lạ, siết Webhook `/health` & untrusted payload, chặn UNC path, dọn `activeRuns` khi shutdown & đồng bộ `README` (`lib/guard.mjs`, `lib/webhook.mjs`, `lib/utils.mjs`, `bot.mjs`, `README.md`, `README.vi.md`, `AGENTS.md`)
 * **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
 * **Tóm tắt thay đổi:**
