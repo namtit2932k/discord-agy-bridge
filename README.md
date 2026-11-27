@@ -5,7 +5,7 @@
   <p>
     <img src="https://img.shields.io/badge/Node.js-v22%2B%20(zero%20node__modules)-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
     <img src="https://img.shields.io/badge/Commands-26%20Slash%20(%2F)-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord Slash Commands" />
-    <img src="https://img.shields.io/badge/Tests-36%2F36%20Passing-2ea44f?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-50%2F50%20Passing-2ea44f?style=flat-square" alt="Tests" />
     <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
   </p>
   <p>
@@ -23,8 +23,8 @@
 3. **Fragmented Discord server management bots:** Once a Discord bot is already online to serve AI, installing half a dozen third-party bots for welcome cards, private member channels, guide syncing, channel cleanup, scheduled tasks, webhook alerts, and Voice music creates clutter and permission headaches. Why not unify all large-server management utilities right inside one lightweight bot?
 
 ### How `discord-agy-bridge` Solves Them
-* **Discord as Antigravity's native UI (`bot.mjs`, `lib/runner.mjs`):** Connects directly to `agy.exe` headless mode (`~74 MB` idle RAM, zero `node_modules` inside the repo) and turns Discord DM, channels, and auto-created Threads into an interactive AI workspace with `26` native `/` Slash Commands, live step streaming, latest-message Action Buttons, Reply context, two-way `25 MB` media attachments, Office/PDF generation (`quick-files`), Cloud TTS, and Windows Desktop + isolated **Chrome AM** browser automation (`port 9229`).
-* **Strict multi-user isolation (RBAC + Sandbox):** Automatically provisions each new server member a private `#ai-<username>` channel and locked workspace (`--sandbox`, no host Desktop/Chrome access, configurable per-day turn/token/cooldown/disk quotas, and instant `BypassSandbox` interception with Admin alerts).
+* **Discord as Antigravity's native UI (`bot.mjs`, `lib/runner.mjs`):** Connects directly to `agy.exe` headless mode (`~74 MB` idle RAM, zero `node_modules` inside the repo) and turns Discord DM, channels, and auto-created Threads into an interactive AI workspace with `26` native `/` Slash Commands, live step streaming, latest-message Action Buttons, Reply context, two-way `25 MB` media attachments, Office/PDF generation (`quick-files`), Cloud TTS, and 4-MCP routing (**`discord-bridge-desktop`**, **`agent-desktop`** headless Windows UIA, **`firecrawl`** Cloud scraping/PDF parsing, and isolated **Chrome AM** on port `9229`).
+* **Two-layer multi-user isolation (RBAC + `PreToolUse` Default-Deny Guard + Sandbox):** Automatically provisions each new server member a private `#ai-<username>` channel, locked workspace (`--sandbox`), and per-channel `discord-attachments/<channelId>` + `discord-temp/<channelId>` directories. A `PreToolUse` hook (`lib/guard.mjs` + `hook-guard.cmd`) enforces **default-deny** for all unrecognized MCP servers/plugins, blocks `agent-desktop`, `firecrawl`, `chrome-devtools`, `browser_subagent`, `schedule`, `run_workflow`, `list_plugin_accounts`, and `BypassSandbox: true` for non-admin sessions, while protecting host bridge/system processes (`node`, `agy`, `antigravity`, `explorer`) from accidental close.
 * **Full-featured Discord Server Management Bot (`0` AI tokens for server utilities):** Built like a complete community server bot — auto-onboard/offboard (`GUILD_MEMBERS`), transparent PNG join/leave cards in `#announcement`, read-only member guide synced to `#instructions`, channel privacy & Admin `/clear`, zero-token daily admin reports, Cron & HTTP Webhook Automation Hub, and a multi-platform Discord Voice music player (`/play`) with resource-saving Opus passthrough.
 
 ---
@@ -66,13 +66,18 @@ Discord (DM / Server Channels / Threads / Voice)
 * **Quotas, Security & Daily Reports (`lib/quota.mjs`, `lib/report.mjs`):** Enforces daily turns/tokens, cooldowns, and workspace MB limits; kills and alerts `#admin` if a non-admin session tries `BypassSandbox: true`; sends zero-token end-of-day usage & disk summaries to `#admin`.
 * **Voice Playback Utility (`/play`, `lib/music.mjs`):** Available to all members in `#free-chat`, Voice text chats, and private rooms (`0` AI tokens). Supports single links and playlists from **YouTube**, **YouTube Music**, **SoundCloud**, **Spotify** (with per-track URLs and durations parsed from embed metadata), direct audio URLs, and song search. Displays a compact Embed with source links, up to `5` upcoming tracks, and `5` live buttons (`⏸️ Pause` · `⏭️ Skip` · `➡️ Sequential / 🔀 Shuffle / 🔂 Repeat 1 / 🔁 Repeat All` · `🧹 Clear Queue` · `⏹️ Stop & Leave`) kept strictly on the newest card. Uses `--no-cache-dir`, `-hwaccel none -threads 1 -c:a copy` Opus passthrough, and auto-leaves empty rooms (`1m`), finished queues (`2m`), or long pauses (`10m`).
 
-### C. Windows Desktop & Isolated Chrome AM (`lib/desktop.mjs`)
-* Exposes **8 authenticated MCP host tools** (`open_in_chrome`, `open_app`, `open_desktop_target`, `send_to_discord`, `text_to_speech`, `capture_desktop`, `desktop_clipboard`, `desktop_windows`) over an ephemeral loopback bridge.
-* Isolates bot browsing in **Chrome AM** (`%LOCALAPPDATA%\Google\Chrome AM User Data`, debug port `9229`) with a fast `getChromeAmStatus()` pre-check before invoking `chrome-devtools` MCP.
+### C. Windows Desktop, `agent-desktop`, Firecrawl Cloud & Isolated Chrome AM (`lib/desktop.mjs`, `lib/runner.mjs`)
+* **`discord-bridge-desktop` (`lib/desktop.mjs`):** Exposes **8 authenticated MCP host tools** (`open_in_chrome`, `open_app`, `open_desktop_target`, `send_to_discord`, `text_to_speech`, `capture_desktop`, `desktop_clipboard`, `desktop_windows`) over an ephemeral loopback bridge (`127.0.0.1:0` + per-session Bearer token) for persistent GUI launches, file uploads, Cloud TTS, and safe Chrome AM shutdown.
+* **`agent-desktop` & `Firecrawl Cloud` routing (`lib/runner.mjs`):** Automatically splits Admin desktop tasks (`discord-bridge-desktop` for persistent launches/uploads vs `agent-desktop` for headless UI inspection/clicks/notifications) and routes public URLs/docs/PDFs to `firecrawl_scrape`/`firecrawl_parse`/`firecrawl_search` without popping up Chrome AM, reserving **Chrome AM** (`%LOCALAPPDATA%\Google\Chrome AM User Data`, port `9229`) for logged-in or interactive SPA workflows.
 
 ### D. Automation Hub — Cron & HTTP Webhook (`lib/cron.mjs`, `lib/webhook.mjs`)
-* **Persistent Cron Scheduler:** Schedules recurring or one-shot AI tasks (`every 30m`, `in 15m`, `daily 08:30`, or 5-field POSIX cron) stored in `state.json`.
-* **Local HTTP Webhook Server:** Accepts `POST /webhook/<hookId>` with Bearer / `X-Webhook-Secret` / HMAC-SHA256 (`X-Hub-Signature-256`) authentication, rate limiting, deduplication (`dedupWindowSec`), immediate `202 Accepted` response, and scoped diagnosis Threads.
+* **Persistent Cron Scheduler:** Schedules recurring or one-shot AI tasks (`every 30m`, `in 15m`, `daily 08:30`, or 5-field POSIX cron) stored in `state.json` — e.g. `/cron add "daily 08:30" "Use firecrawl_search to summarize top tech news today"`.
+* **Local HTTP Webhook Server:** Binds to `127.0.0.1:3939` by default, accepts `POST /webhook/<hookId>` with Bearer / `X-Webhook-Secret` / HMAC-SHA256 (`X-Hub-Signature-256`) authentication, minimal unauthenticated `GET /health` (`{"ok":true}`), request timeouts (`15s`), rate limiting, deduplication (`dedupWindowSec`), untrusted payload delimiters (`<untrusted_webhook_payload>`), and scoped non-admin diagnosis Threads.
+
+### E. Security Model & Boundaries (`lib/auth.mjs`, `lib/guard.mjs`)
+* **Default-deny MCP guard:** Non-admin sessions (Members & Webhooks) are governed by a `PreToolUse` hook (`hook-guard.cmd` → `bot.mjs --hook-guard`) that blocks unrecognized MCP servers/plugins by default, rejects `BypassSandbox: true`, `schedule`, `run_workflow`, `list_plugin_accounts`, and `browser_subagent`, while remaining a zero-overhead no-op outside Discord bridge runs.
+* **Path & temp isolation:** Rejects Windows UNC/device paths (`\\server\share`, `\\?\...`, `\\.\...`), symlink/junction escapes, and cross-channel temp access via per-channel `discord-attachments/<channelId>` and `discord-temp/<channelId>` directories.
+* **Scope of application-level sandboxing:** `--sandbox`, workspace path checks, and `PreToolUse` hooks provide strong application-level isolation suited for friends, family, and trusted groups sharing a personal Windows host. Because all sessions run under the same Windows user account, do **not** treat this as OS/VM-level isolation for completely untrusted public internet users; keep `webhook.host` bound to `127.0.0.1` unless fronted by an authenticated reverse proxy/tunnel.
 
 ---
 
@@ -86,28 +91,32 @@ discord-agy-bridge/
 ├── assets/
 │   ├── logo-white.png        # Active logo (white ink, transparent PNG)
 │   └── logo-black.png        # Alternate logo (black ink, transparent PNG)
-├── bot.mjs                   # Main entrypoint: Gateway dispatch, slash/button handlers, agy runner
+├── bot.mjs                   # Main entrypoint: Gateway dispatch, slash/button handlers, --mcp-stdio, --hook-guard
+├── hook-guard.cmd            # Zero-overhead Windows PreToolUse wrapper (no-op outside Discord bridge)
 ├── lib/
 │   ├── announce-card.mjs     # Transparent PNG join/leave banner generator (.NET System.Drawing)
-│   ├── auth.mjs              # RBAC authorization, MEMBER_ALLOWED_COMMANDS, MCP tool scoping
+│   ├── auth.mjs              # RBAC authorization, MEMBER_ALLOWED_COMMANDS, allowFirecrawl & MCP scoping
 │   ├── cron.mjs              # Persistent cron scheduler & /cron parser
-│   ├── desktop.mjs           # MCP desktop bridge (Chrome AM, Windows GUI, clipboard, capture, TTS)
+│   ├── desktop.mjs           # MCP desktop bridge (Chrome AM, Windows GUI, per-channel temp, capture, TTS)
 │   ├── discord-gateway.mjs   # Custom WebSocket Gateway client (Heartbeat, Resume, Watchdog, Intents)
-│   ├── music.mjs             # Discord Voice player, playlist resolver, 4 modes, resource tuning
+│   ├── guard.mjs             # Default-deny PreToolUse RBAC guard & protected-process shield
+│   ├── music.mjs             # Discord Voice player, playlist resolver, 4 modes, stream TTL & resource tuning
 │   ├── onboard.mjs           # Auto-onboard/offboard private channels + sandbox folders
 │   ├── quota.mjs             # Daily turns/tokens, cooldown & disk quota enforcement
 │   ├── report.mjs            # Zero-token daily admin summary & security alert recorder
-│   ├── runner.mjs            # Priority queue semaphore, sleep inhibitor, prompt builder
+│   ├── runner.mjs            # Priority queue semaphore, sleep inhibitor, 4-MCP prompt routing
 │   ├── slash.mjs             # 26 Slash Command definitions, parser & dynamic autocomplete
-│   ├── utils.mjs             # 64-bit Snowflake preservation, atomic JSON, path & log sanitization
-│   └── webhook.mjs           # Authenticated HTTP webhook server
-├── test/                     # Zero-dependency Node test suite (`node --test`, 36 tests)
+│   ├── utils.mjs             # 64-bit Snowflake preservation, atomic JSON, UNC/symlink path safety
+│   └── webhook.mjs           # Authenticated HTTP webhook server (untrusted payload framing, /health guard)
+├── scripts/
+│   └── verify.mjs            # One-command health check (syntax, 50 tests, config/MCP/hook/PID/hygiene)
+├── test/                     # Zero-dependency Node test suite (`node --test`, 50 tests)
 ├── config.example.json       # Template config (copy to config.json locally, NEVER commit)
 ├── .gitignore                # Ignores config.json, state.json, bot.log, bot.pid, node_modules/, workspaces/
 ├── run-hidden.vbs            # Hidden Windows Task Scheduler launcher
 ├── start.bat / stop.bat      # Foreground terminal runner / daemon + Task Scheduler stopper
-├── AGENTS.md                 # Architecture, design rules & deployment runbook for AI Agents
-├── CLAUDE.md                 # Multi-agent context pointer
+├── AGENTS.md                 # Master multi-agent handoff & operations playbook
+├── CLAUDE.md / GEMINI.md     # Auto-loaded agent context pointers
 └── CHANGELOG.md              # Chronological change log (newest at top)
 ```
 
@@ -151,13 +160,13 @@ icacls "C:\ProgramData\agy-shared-tools" /grant "*S-1-15-2-1:(OI)(CI)(RX)" /T
 
 ### Step 3: Verify & Run
 ```powershell
-# Syntax check & unit tests (36/36)
-node --check bot.mjs
-node --test
+# Canonical 1-command verification (syntax, 50 unit tests, config/MCP/hook/PID/hygiene)
+node scripts/verify.mjs
 
 # Run interactively with console output
 .\start.bat
 ```
+*(Note: `node scripts/verify.mjs` validates syntax, unit/regression tests, and daemon health; real Windows GUI/Chrome AM/Discord Voice interactions should also be smoke-tested live on the host after major changes.)*
 For background autostart on Windows logon, create a Task Scheduler task named `AntigravityDiscordBridge` (`Logon Mode: Interactive only`) running `wscript.exe //B "<path>\run-hidden.vbs"`. Deploy updates with:
 ```powershell
 .\stop.bat
@@ -190,7 +199,7 @@ schtasks /Run /TN "AntigravityDiscordBridge"
 
 ## 7. Multi-Agent Handoff Rules
 
-1. Always read [`AGENTS.md`](./AGENTS.md) and the top of [`CHANGELOG.md`](./CHANGELOG.md) before editing code or config.
+1. Always read [`AGENTS.md`](./AGENTS.md), the top 30–60 lines of [`CHANGELOG.md`](./CHANGELOG.md), and run `node scripts/verify.mjs` before editing code or config.
 2. **Never read, print, or commit `botToken`** inside `config.json`.
 3. **Never launch GUI apps directly from IDE terminals:** IDE shells execute inside hidden desktop `WinSta0\exebox-...`; GUI launches belong to the Interactive Task Scheduler daemon `bot.mjs`.
-4. **After every change:** Run `node --check` on modified `.mjs` files, run `node --test`, prepend a new entry to [`CHANGELOG.md`](./CHANGELOG.md), update [`AGENTS.md`](./AGENTS.md) if architecture changed, then restart with `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"` and verify `bot.pid` + `bot.log`.
+4. **After every change:** Prepend a new entry to [`CHANGELOG.md`](./CHANGELOG.md), update [`AGENTS.md`](./AGENTS.md) if architecture changed, run `node scripts/verify.mjs`, restart with `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"`, then re-run `node scripts/verify.mjs` and inspect `bot.log`.

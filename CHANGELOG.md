@@ -18,6 +18,30 @@
 
 ---
 
+## [2026-11-27 13:27] — Chuyển `PreToolUse` guard sang default-deny cho MCP lạ, siết Webhook `/health` & untrusted payload, chặn UNC path, dọn `activeRuns` khi shutdown & đồng bộ `README` (`lib/guard.mjs`, `lib/webhook.mjs`, `lib/utils.mjs`, `bot.mjs`, `README.md`, `README.vi.md`, `AGENTS.md`)
+* **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
+* **Tóm tắt thay đổi:**
+  * **Default-deny MCP Guard ([`lib/guard.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/guard.mjs), [`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs)):**
+    * Chuyển mọi lời gọi `call_mcp_tool`, `list_resources`, `read_resource` và `mcp_*` của phiên non-Admin sang **fail-closed (default-deny)**: bất kỳ MCP server/plugin mới cài thêm nào ngoài allowlist tường minh đều bị chặn ngay tại `PreToolUse` và bắn cảnh báo `#admin` qua `onBlockedMcp`.
+    * Chặn thêm `schedule` và `run_workflow` đối với non-Admin.
+  * **Siết Webhook (`/health` & Prompt Injection) ([`lib/webhook.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/webhook.mjs)):**
+    * `GET /health` không xác thực chỉ trả liveness tối giản `{"ok":true}` (không lộ danh sách `hooks` hay `gatewayReady`); chỉ trả chi tiết khi kèm đúng `defaultSecret`.
+    * `prepareWebhookEvent()` bọc dữ liệu đầu vào bằng `<untrusted_webhook_payload>` (neutralize thẻ đóng giả) kèm quy tắc `UNTRUSTED EXTERNAL DATA`.
+  * **Chặn Windows UNC/device paths & Clean Shutdown ([`lib/utils.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/lib/utils.mjs), [`bot.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/bot.mjs)):**
+    * Thêm `isWindowsUncOrDevicePath()` từ chối `\\server\share`, `\\?\...`, `\\.\...` trong `isPathInsideDir()` và `resolveLocalFilePath()`.
+    * Cập nhật `shutdownBridge()` gọi `abort()` trên mọi `activeRuns` trước khi thoát tiến trình.
+  * **Đồng bộ tài liệu & Regression Tests:**
+    * Cập nhật [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md), [`README.vi.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.vi.md) (`50/50` tests, `node scripts/verify.mjs`, 4 MCP, `lib/guard.mjs`, mục Security Model & Boundaries) và [`AGENTS.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/AGENTS.md).
+    * Bổ sung regression tests vào [`test/guard.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/guard.test.mjs), [`test/webhook.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/webhook.test.mjs), [`test/utils.test.mjs`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/test/utils.test.mjs) (gồm cả test Windows directory junction escape).
+* **File / Thành phần tác động (trong & ngoài repo):**
+  * Trong repo: `lib/guard.mjs`, `lib/webhook.mjs`, `lib/utils.mjs`, `bot.mjs`, `test/guard.test.mjs`, `test/webhook.test.mjs`, `test/utils.test.mjs`, `README.md`, `README.vi.md`, `AGENTS.md`, `CHANGELOG.md`.
+  * Ngoài repo: `C:\Users\Admin\.gemini\config\hooks.json` (tự cập nhật matcher thêm `schedule|run_workflow` khi restart bot).
+* **Kiểm tra đã chạy:**
+  * `node scripts/verify.mjs` (`7/7 PASS`, `50/50` tests passing, `0 failed, 0 warning(s)`).
+  * Restart daemon qua `stop.bat` → `schtasks /Run /TN "AntigravityDiscordBridge"`, xác minh `bot.pid`, `hooks.json` & `bot.log`.
+
+---
+
 ## [2026-11-27 06:23] — Tối ưu hướng dẫn `take_screenshot` trong `cwd` & bỏ tiêm thừa Chrome AM guide khi dùng Firecrawl đọc URL tĩnh (`lib/runner.mjs`, `test/runner.test.mjs`)
 * **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
 * **Tóm tắt thay đổi:**

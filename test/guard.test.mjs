@@ -143,6 +143,43 @@ test("evaluateToolGuard hard-blocks agent-desktop, firecrawl, chrome-devtools, a
     env
   );
   assert.equal(rBrowserSub.decision, "deny");
+
+  // Default-deny unrecognized MCP servers/plugins & background scheduling for non-admin sessions
+  const rUnknownMcp = evaluateToolGuard(
+    {
+      toolCall: {
+        name: "call_mcp_tool",
+        args: { ServerName: "gmail", ToolName: "send_email", Arguments: { to: "x@y.com" } },
+      },
+    },
+    env
+  );
+  assert.equal(rUnknownMcp.decision, "deny");
+  assert.match(rUnknownMcp.reason, /unrecognized MCP/i);
+
+  const rUnknownPrefixed = evaluateToolGuard(
+    { toolCall: { name: "mcp_figma_export_file", args: {} } },
+    env
+  );
+  assert.equal(rUnknownPrefixed.decision, "deny");
+
+  const rUnknownResource = evaluateToolGuard(
+    { toolCall: { name: "read_resource", args: { ServerName: "gdocs", Uri: "gdocs://secret" } } },
+    env
+  );
+  assert.equal(rUnknownResource.decision, "deny");
+
+  const rSchedule = evaluateToolGuard(
+    { toolCall: { name: "schedule", args: { DurationSeconds: 60, Prompt: "ping" } } },
+    env
+  );
+  assert.equal(rSchedule.decision, "deny");
+
+  const rWorkflow = evaluateToolGuard(
+    { toolCall: { name: "run_workflow", args: { Script: "print(1)" } } },
+    env
+  );
+  assert.equal(rWorkflow.decision, "deny");
 });
 
 test("evaluateToolGuard respects selective Member allowFirecrawl while still blocking agent-desktop", () => {
@@ -196,6 +233,18 @@ test("evaluateToolGuard allows Admin MCP calls but protects bridge/system proces
     adminEnv
   );
   assert.deepEqual(rAdminFirecrawl, { decision: "allow" });
+
+  // Admin can invoke newly installed MCP plugins without guard blocking
+  const rAdminNewPlugin = evaluateToolGuard(
+    {
+      toolCall: {
+        name: "call_mcp_tool",
+        args: { ServerName: "gmail", ToolName: "list_messages", Arguments: {} },
+      },
+    },
+    adminEnv
+  );
+  assert.deepEqual(rAdminNewPlugin, { decision: "allow" });
 
   const rCloseNode = evaluateToolGuard(
     {

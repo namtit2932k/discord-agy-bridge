@@ -7,6 +7,7 @@ import {
   extractReplyContext,
   extractSnowflakeId,
   isPathInsideDir,
+  isWindowsUncOrDevicePath,
   quoteSnowflakeLiterals,
   resolveCanonicalPath,
   sanitizeAttachmentFilename,
@@ -43,7 +44,20 @@ test("isPathInsideDir allows children and blocks traversal escapes", () => {
     assert.equal(isPathInsideDir(path.join(subDir, "nested", "file.txt"), subDir), true);
     assert.equal(isPathInsideDir(path.join(subDir, "..", "workspace-secret", "leak.txt"), subDir), false);
     assert.equal(isPathInsideDir(siblingDir, subDir), false);
+    assert.equal(isPathInsideDir("\\\\server\\share\\secret.txt", subDir), false);
+    assert.equal(isPathInsideDir("\\\\?\\C:\\Windows\\win.ini", subDir), false);
+    assert.equal(isPathInsideDir("\\\\.\\pipe\\test", subDir), false);
+    assert.equal(isWindowsUncOrDevicePath("\\\\server\\share\\a.txt"), true);
+    assert.equal(isWindowsUncOrDevicePath("\\\\?\\C:\\test"), true);
+    assert.equal(isWindowsUncOrDevicePath("C:\\Users\\Admin\\file.txt"), false);
     assert.equal(resolveCanonicalPath(path.join(subDir, "nonexistent.txt")).endsWith("nonexistent.txt"), true);
+
+    // Windows directory junction pointing outside workspace must be rejected
+    if (process.platform === "win32") {
+      const junctionPath = path.join(subDir, "escape-link");
+      fs.symlinkSync(siblingDir, junctionPath, "junction");
+      assert.equal(isPathInsideDir(path.join(junctionPath, "leak.txt"), subDir), false);
+    }
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

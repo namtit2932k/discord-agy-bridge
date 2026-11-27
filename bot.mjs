@@ -14,6 +14,7 @@ import {
   formatByteSize,
   formatNumber,
   isPathInsideDir,
+  isWindowsUncOrDevicePath,
   readJsonSafe,
   resolveCanonicalPath,
   sanitizeAttachmentFilename,
@@ -1348,19 +1349,21 @@ async function downloadIncomingAttachments(channelId, messageId, attachments) {
   return { downloaded, lines, channelDir: downloaded.length > 0 ? channelDir : null };
 }
 
-/** Resolve a local file path or file:// URI relative to an active working directory. */
+/** Resolve a local file path or file:// URI relative to an active working directory (rejecting UNC/device paths). */
 function resolveLocalFilePath(rawPath, cwd = "") {
   const cleaned = String(rawPath || "").trim().replace(/^["']|["']$/g, "");
-  if (!cleaned) return "";
+  if (!cleaned || isWindowsUncOrDevicePath(cleaned)) return "";
   if (cleaned.startsWith("file://")) {
     try {
-      return path.resolve(fileURLToPath(cleaned));
+      const local = path.resolve(fileURLToPath(cleaned));
+      return isWindowsUncOrDevicePath(local) ? "" : local;
     } catch {
       return "";
     }
   }
   const baseCwd = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
-  return path.isAbsolute(cleaned) ? path.resolve(cleaned) : path.resolve(baseCwd, cleaned);
+  const resolved = path.isAbsolute(cleaned) ? path.resolve(cleaned) : path.resolve(baseCwd, cleaned);
+  return isWindowsUncOrDevicePath(resolved) ? "" : resolved;
 }
 
 /** Upload one or more local files directly to a Discord channel/thread using multipart/form-data. */
@@ -4169,11 +4172,17 @@ function createAgyStreamState(turnStartMs = Date.now(), { onBypassSandbox = null
           if (typeof onBlockedMcp === "function") {
             const inv = normalizeToolInvocation({ name: toolName, args: params });
             const family = classifyMcpFamily(inv);
-            if (family && family !== "discord-bridge-desktop") {
-              const dedupKey = `${family}:${inv.toolName}`;
+            const isMcpCall =
+              inv.rawToolName === "call_mcp_tool" ||
+              inv.rawToolName === "list_resources" ||
+              inv.rawToolName === "read_resource" ||
+              inv.rawToolName.startsWith("mcp_");
+            const reportedFamily = family || (isMcpCall ? inv.serverName || "unknown_mcp" : "");
+            if (reportedFamily && reportedFamily !== "discord-bridge-desktop") {
+              const dedupKey = `${reportedFamily}:${inv.toolName}`;
               if (!blockedMcpReported.has(dedupKey)) {
                 blockedMcpReported.add(dedupKey);
-                onBlockedMcp({ family, toolName: inv.toolName, serverName: inv.serverName });
+                onBlockedMcp({ family: reportedFamily, toolName: inv.toolName, serverName: inv.serverName });
               }
             }
           }
@@ -5735,6 +5744,12 @@ webhookServer = createWebhookServer({
 });
 
 const shutdownBridge = () => {
+  for (const run of activeRuns.values()) {
+    try {
+      run?.abort?.();
+    } catch {}
+  }
+  activeRuns.clear();
   cronManager?.stop();
   dailyReportScheduler?.stop();
   musicManager?.destroyAll();

@@ -99,14 +99,14 @@ bot.mjs (Orchestrator: --mcp-stdio, --hook-guard, Dispatch, Stream, Buttons)
   * **`chrome-devtools` (Chrome AM `9229`):** dành cho trang cần đăng nhập, tương tác SPA (click/scroll/comment/video) hoặc chụp ảnh giao diện thực tế; có pre-check `getChromeAmStatus(300)` trước khi gọi.
 * **Cách ly đa người dùng (RBAC + Per-Channel Temp/Attachments):**
   * DM chỉ cho Root Admin (`allowedUserId`) và `adminUserIds`.
-  * Member bị khóa trong `cwd` riêng + `--sandbox` + `MEMBER_ALLOWED_COMMANDS` (8 lệnh) + `MEMBER_SAFE_MCP_TOOLS` (`send_to_discord`, `text_to_speech`) + chốt chặn cứng `PreToolUse` (`lib/guard.mjs`).
-  * Tệp đính kèm tải từ Discord lưu cô lập theo kênh tại `~/.gemini/antigravity-cli/discord-attachments/<channelId>/` (tự dọn >7 ngày); tệp tạm của `capture_desktop` & `text_to_speech` cô lập theo kênh tại `~/.gemini/antigravity-cli/discord-temp/<channelId>/` (tự dọn >24h), ngăn hoàn toàn rò rỉ chéo giữa phòng Admin và phòng Member.
+  * Member bị khóa trong `cwd` riêng + `--sandbox` + `MEMBER_ALLOWED_COMMANDS` (8 lệnh) + `MEMBER_SAFE_MCP_TOOLS` (`send_to_discord`, `text_to_speech`) + chốt chặn cứng `PreToolUse` **default-deny** (`lib/guard.mjs`: mọi MCP server/plugin lạ, `schedule`, `run_workflow`, `list_plugin_accounts`, `browser_subagent` đều bị từ chối mặc định với non-Admin).
+  * Tệp đính kèm tải từ Discord lưu cô lập theo kênh tại `~/.gemini/antigravity-cli/discord-attachments/<channelId>/` (tự dọn >7 ngày); tệp tạm của `capture_desktop` & `text_to_speech` cô lập theo kênh tại `~/.gemini/antigravity-cli/discord-temp/<channelId>/` (tự dọn >24h); `lib/utils.mjs` & `resolveLocalFilePath` chặn Windows UNC/device paths (`\\server\share`, `\\?\`, `\\.\`) và symlink/junction trỏ ra ngoài workspace.
   * `send_to_discord` tự chặn upload `config.json` (theo cả đường dẫn chuẩn hóa symlink).
 * **Ổn định chạy nền 24/7:**
   * `channelQueues` tự dọn entry khi hoàn tất; `channelMetaCache`, `channelLastPrompts`, `deletedChannels` dùng giới hạn FIFO (`500` mục) tránh tăng RAM vô hạn.
-  * Khi hủy lượt bằng `/stop` hoặc `[⏹️ Dừng ngay]` trên Windows, `runAgy` chạy thêm `taskkill /PID <pid> /T /F` để tránh tiến trình con mồ côi.
+  * Khi hủy lượt bằng `/stop`, `[⏹️ Dừng ngay]` hoặc tắt daemon (`shutdownBridge`), `bot.mjs` abort toàn bộ `activeRuns` và chạy `taskkill /PID <pid> /T /F` trên Windows để tránh tiến trình con mồ côi.
   * `lib/music.mjs` gắn `streamResolvedAt` với TTL `2` giờ (`STREAM_URL_TTL_MS`) để chế độ `Repeat 1` / `Repeat tất cả` tự làm mới signed stream URL khi hết hạn.
-  * `lib/webhook.mjs` có `req.setTimeout(15000)` và kiểm tra auth trước khi trả `404` nhằm tránh lộ danh sách `hookId`.
+  * `lib/webhook.mjs` có `req.setTimeout(15000)`, trả `401` trước `404`, chỉ trả `{"ok":true}` ở `GET /health` chưa xác thực, và bọc payload trong `<untrusted_webhook_payload>` chống prompt injection.
 * **Auto-Onboard, `#announcement`, `#instructions`, Slash Commands & Buttons:**
   * `GUILD_MEMBERS` intent tự bật khi `autoOnboard.enabled` hoặc có `#announcement`, kèm fallback an toàn trên close code `4014`.
   * `#instructions` và `#announcement` tự khóa **read-only** cho `@everyone`; `#announcement` đếm `Math.max(0, memberCount - 1)` (trừ bot).
