@@ -18,6 +18,15 @@
 
 ---
 
+## [2026-11-27 13:44] — Tinh giản icon trong `README.md` & `README.vi.md` (`README.md`, `README.vi.md`)
+* **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
+* **Tóm tắt thay đổi:**
+  * Bỏ phần lớn icon thừa ở tiêu đề phụ, thanh điều hướng, từng dòng bullet/bảng và hướng dẫn cài đặt; chỉ giữ lại icon ở 7 tiêu đề mục chính (`##`), ma trận trạng thái quyền (`✅`/`❌`/`🔒`/`⚙️`) và nhãn nút Discord thực tế để README gọn mắt, chuyên nghiệp hơn.
+* **File / Thành phần tác động:**
+  * [`README.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.md), [`README.vi.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/README.vi.md), [`CHANGELOG.md`](file:///c:/Users/Admin/.gemini/antigravity/scratch/discord-agy-bridge/CHANGELOG.md).
+* **Kiểm tra đã chạy:**
+  * Kiểm tra 100% anchor & liên kết tệp cục bộ + `node scripts/verify.mjs`.
+
 ## [2026-11-27 13:40] — Thiết kế lại `README.md` & `README.vi.md` trực quan hơn kèm 2 sơ đồ SVG dual-theme dựng bằng Archify (`README.md`, `README.vi.md`, `assets/diagrams/*.svg`, `.gitignore`)
 * **Agent / Phiên:** Antigravity (`b3e80bce-6430-42b4-807f-8f859ead9c16`)
 * **Tóm tắt thay đổi:**
